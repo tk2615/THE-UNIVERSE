@@ -1,9 +1,9 @@
-
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evolving Wordscape</title>
+    <title>Omni-Source Galaxy</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,13 +22,12 @@
         }
         .hud-val { font-weight: 700; margin-left: 5px; }
 
-        /* Sound Status Viz */
-        #audio-viz {
-            position: absolute; bottom: 30px; left: 30px; z-index: 20;
-            width: 200px; height: 60px; pointer-events: none;
+        /* Source List Display */
+        #source-list {
+            position: absolute; bottom: 30px; right: 30px; z-index: 20;
+            font-family: 'Roboto Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.4);
+            text-align: right; pointer-events: none; line-height: 1.4;
         }
-        .bar { height: 2px; background: rgba(255,255,255,0.5); margin-bottom: 4px; transition: width 0.2s; }
-        .label { font-size: 9px; font-family: 'Roboto Mono'; color: #888; margin-bottom: 2px; }
 
         /* Overlay */
         #overlay {
@@ -45,23 +44,18 @@
         }
         #start-btn:hover { background: white; color: black; box-shadow: 0 0 50px rgba(255,255,255,0.5); transform: scale(1.05); }
         
-        /* Log Toggle */
-        #controls { position: absolute; top: 30px; right: 30px; z-index: 30; }
-        .btn { background: rgba(128,128,128,0.2); border: 1px solid rgba(128,128,128,0.5); color: #fff; padding: 8px 16px; cursor: pointer; border-radius: 20px; backdrop-filter: blur(5px); font-size: 10px; }
-        
-        /* Log */
         #sys-log {
-            position: absolute; bottom: 30px; right: 30px; z-index: 20;
+            position: absolute; bottom: 30px; left: 30px; z-index: 20;
             font-family: 'Roboto Mono', monospace; font-size: 10px; color: #00ffaa;
-            pointer-events: none; text-align: right; opacity: 0.7;
+            pointer-events: none; opacity: 0.7; width: 300px;
         }
     </style>
 </head>
 <body>
 
     <div id="overlay">
-        <div class="title">流動する言葉</div>
-        <div class="subtitle">Fluid Audio-Visual News Stream</div>
+        <div class="title">森羅万象</div>
+        <div class="subtitle">Omni-Source Real-time Stream</div>
         <button id="start-btn">接続 / CONNECT</button>
     </div>
 
@@ -71,20 +65,8 @@
         <div>ENV  <span id="env-display" class="hud-val">--</span></div>
     </div>
 
-    <div id="audio-viz">
-        <div class="label">HARMONY (HOPE/ART)</div>
-        <div class="bar" id="bar-harmony" style="width: 50%;"></div>
-        <div class="label">TENSION (CRISIS)</div>
-        <div class="bar" id="bar-tension" style="width: 10%; background: #ff3333;"></div>
-        <div class="label">NOISE (TECH/CHAOS)</div>
-        <div class="bar" id="bar-noise" style="width: 20%; background: #00ffff;"></div>
-    </div>
-
-    <div id="sys-log">waiting for stream...</div>
-
-    <div id="controls">
-        <button class="btn" onclick="toggleLog()">LOG ON/OFF</button>
-    </div>
+    <div id="sys-log">Initializing...</div>
+    <div id="source-list">ACTIVE SOURCES WILL APPEAR HERE</div>
 
     <div id="canvas-container"></div>
 
@@ -95,53 +77,74 @@
     <script>
         // --- CONFIGURATION ---
         const CONFIG = {
-            spawnRate: 100,      // 高速出現
-            wordLife: 40000,     // 長時間滞在
-            baseSize: 60,        // 【変更点】文字サイズを大幅アップ (前回比2倍)
-            minSize: 40,         // 【変更点】遠くてもこれ以上小さくしない
-            connectDist: 500,    // 接続距離
+            spawnRate: 100,      
+            wordLife: 40000,     
+            baseSize: 60,        
+            minSize: 40,         
+            connectDist: 500,    
             particleCount: 4000,
-            fogDensity: 0.0004   // 【変更点】フォグを薄くして奥まで見えやすく
+            fogDensity: 0.0004   
         };
 
-        const FEEDS = [
-            { name: "NHK", url: "https://www3.nhk.or.jp/rss/news/cat0.xml" },
-            { name: "YAHOO", url: "https://news.yahoo.co.jp/rss/topics/top-picks.xml" },
+        // --- EXPANDED SOURCE LIST (25+) ---
+        const ALL_FEEDS = [
+            // JP NEWS
+            { name: "NHK NEWS", url: "https://www3.nhk.or.jp/rss/news/cat0.xml" },
+            { name: "YAHOO! TOP", url: "https://news.yahoo.co.jp/rss/topics/top-picks.xml" },
+            { name: "YAHOO! SCI", url: "https://news.yahoo.co.jp/rss/topics/science.xml" },
+            { name: "BUSINESS INSIDER", url: "https://www.businessinsider.jp/feed/index.xml" },
+            
+            // GLOBAL NEWS
+            { name: "BBC WORLD", url: "https://feeds.bbci.co.uk/news/world/rss.xml" },
+            { name: "REUTERS", url: "https://www.reutersagency.com/feed/?best-topics=political-general&post_type=best" },
+            { name: "CNN", url: "http://rss.cnn.com/rss/edition.rss" },
+            { name: "AL JAZEERA", url: "https://www.aljazeera.com/xml/rss/all.xml" },
+            
+            // TECH & SCIENCE
             { name: "WIRED", url: "https://www.wired.com/feed/rss" },
-            { name: "BBC", url: "https://feeds.bbci.co.uk/news/world/rss.xml" },
-            { name: "REUTERS", url: "https://www.reutersagency.com/feed/?best-topics=political-general&post_type=best" }
+            { name: "GIZMODO JP", url: "https://www.gizmodo.jp/index.xml" },
+            { name: "TECHCRUNCH", url: "https://techcrunch.com/feed/" },
+            { name: "NASA", url: "https://www.nasa.gov/rss/dyn/breaking_news.rss" },
+            { name: "SPACE.COM", url: "https://www.space.com/feeds/all" },
+            { name: "NAT GEO", url: "https://www.nationalgeographic.com/ngm/index.rss" },
+            
+            // CULTURE & ART
+            { name: "ART NEWS", url: "https://www.artnews.com/feed/" },
+            { name: "DEZEEN", url: "https://www.dezeen.com/feed/" },
+            { name: "HYPEBEAST", url: "https://hypebeast.com/feed" },
+            { name: "VOGUE", url: "https://www.vogue.com/feed/rss" },
+            
+            // ECONOMY
+            { name: "FORBES", url: "https://www.forbes.com/most-popular/feed/" },
+            { name: "FINANCIAL TIMES", url: "https://www.ft.com/?format=rss" }
         ];
+
         const PROXY = "https://api.rss2json.com/v1/api.json?rss_url=";
 
-        const TYPE_NEUTRAL=0, TYPE_HOPE=1, TYPE_CRISIS=2, TYPE_TECH=3, TYPE_NATURE=4, TYPE_ART=5;
+        // Dictionaries & Classifiers
+        const TYPE_NEUTRAL=0, TYPE_HOPE=1, TYPE_CRISIS=2, TYPE_TECH=3, TYPE_NATURE=4, TYPE_ART=5, TYPE_MONEY=6;
         const CLASSIFIER = {
             crisis: ["WAR","CRISIS","DEATH","KILL","ATTACK","DANGER","WARNING","BOMB","VICTIM","戦争","危機","災害","殺害","事故","警報","死亡","脅威","爆発","炎上"],
             hope:   ["PEACE","WIN","HOPE","SUCCESS","JOY","BEST","HEAL","LOVE","SAVE","VICTORY","平和","希望","支援","回復","優勝","成功","愛","救助","勝利","祝福","金メダル"],
             tech:   ["AI","SPACE","DATA","FUTURE","CYBER","QUANTUM","ROBOT","APP","CODE","APPLE","GOOGLE","宇宙","未来","技術","開発","人工知能","量子","ロケット","電脳"],
-            nature: ["EARTH","CLIMATE","OCEAN","FOREST","ANIMAL","PLANET","STORM","GREEN","地球","環境","海","森","気候","動物","台風","猛暑","温暖化","自然"],
-            art:    ["ART","SOUL","COLOR","MIND","DREAM","POEM","MUSIC","FILM","IDEA","DESIGN","芸術","魂","夢","思考","色","哲学","映画","音楽","言葉"]
+            nature: ["EARTH","CLIMATE","OCEAN","FOREST","ANIMAL","PLANET","STORM","HEAT","GREEN","地球","環境","海","森","気候","動物","台風","猛暑","温暖化","自然"],
+            art:    ["ART","SOUL","COLOR","MIND","DREAM","POEM","MUSIC","FILM","IDEA","DESIGN","芸術","魂","夢","思考","色","哲学","映画","音楽","言葉","感性","作品"],
+            money:  ["MARKET","STOCK","MONEY","DOLLAR","PRICE","TRADE","ECONOMY","BITCOIN","株","円","ドル","経済","市場","投資","価格","値上げ","金融"]
         };
-        const STOP_WORDS = ["THE","AND","FOR","WITH","NEWS","LIVE","FROM","THAT","REPORT","NEW","あ","い","う","え","お","の","に","は","を","が","で","て","と","も","し","た","る","こと","ます","です"];
-        const BACKUP = [{t:"Vision",s:"SYS",y:TYPE_ART},{t:"Time",s:"SYS",y:TYPE_NEUTRAL},{t:"Echo",s:"SYS",y:TYPE_NATURE},{t:"Core",s:"SYS",y:TYPE_TECH}];
+        const STOP_WORDS = ["THE","AND","FOR","WITH","NEWS","LIVE","FROM","THAT","REPORT","NEW","VIDEO","SAYS","YOUR","あ","い","う","え","お","の","に","は","を","が","で","て","と","も","し","た","る","こと","ます","です","さん","など","いる","ある","する","なる","ため"];
+        const BACKUP = [{t:"System",s:"BACKUP",y:TYPE_TECH},{t:"Loading",s:"BACKUP",y:TYPE_NEUTRAL},{t:"Cosmos",s:"BACKUP",y:TYPE_NATURE}];
 
         let wordBuffer = [];
         let appState = { 
             mode: 'night',
-            // Mood Values (0.0 - 1.0) for Audio Mixing
-            tension: 0,
-            harmony: 0.5,
-            noise: 0
+            tension: 0, harmony: 0.5, noise: 0
         };
         let isAudioReady = false;
 
         // --- UTILS ---
         function log(msg) {
             const el = document.getElementById('sys-log');
-            if(el.style.display !== 'none') el.innerText = msg;
-        }
-        function toggleLog() {
-            const el = document.getElementById('sys-log');
-            el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+            el.innerText = "> " + msg;
         }
         function updateTime() {
             const now = new Date();
@@ -168,24 +171,35 @@
 
         // --- DATA ENGINE ---
         const segmenter = new Intl.Segmenter("ja-JP", { granularity: "word" });
-        
+        function decodeEntity(str) { const t=document.createElement("textarea"); t.innerHTML=str; return t.value; }
+
         async function fetchFeeds() {
-            log("Updating streams...");
-            const promises = FEEDS.map(f => fetch(PROXY + encodeURIComponent(f.url)).then(r=>r.ok?r.json():null).catch(e=>null));
+            // Randomly select 8 feeds to fetch this cycle to allow variety and avoid rate limits
+            const shuffled = ALL_FEEDS.sort(() => 0.5 - Math.random());
+            const selectedFeeds = shuffled.slice(0, 8);
+            
+            // Update Source Display
+            const sourceListEl = document.getElementById('source-list');
+            sourceListEl.innerHTML = "CURRENT SOURCES:<br>" + selectedFeeds.map(f => f.name).join("<br>");
+
+            log(`Scanning ${selectedFeeds.length} active sources...`);
+            
+            const promises = selectedFeeds.map(f => fetch(PROXY + encodeURIComponent(f.url)).then(r=>r.ok?r.json():null).catch(e=>null));
             const results = await Promise.all(promises);
             
             let count = 0;
             results.forEach((data, idx) => {
                 if(data && data.items) {
                     data.items.forEach(item => {
-                        const srcName = FEEDS[idx].name;
+                        const srcName = selectedFeeds[idx].name;
                         processTitle(item.title, srcName);
                         count++;
                     });
                 }
             });
+            
             if(count === 0) BACKUP.forEach(d => wordBuffer.push({text:d.t, source:d.s, type:d.y}));
-            log(`Stream active: ${count} articles scanned`);
+            log(`Stream updated: ${count} articles.`);
         }
 
         function processTitle(title, source) {
@@ -213,109 +227,72 @@
             else if(CLASSIFIER.tech.some(k=>up.includes(k))) type = TYPE_TECH;
             else if(CLASSIFIER.nature.some(k=>up.includes(k))) type = TYPE_NATURE;
             else if(CLASSIFIER.art.some(k=>up.includes(k))) type = TYPE_ART;
+            else if(CLASSIFIER.money.some(k=>up.includes(k))) type = TYPE_MONEY;
 
             let disp = text;
             if(!text.match(/[亜-熙ぁ-んァ-ヶ]/)) disp = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
             wordBuffer.push({ text: disp, type: type, source: source });
         }
         
-        setInterval(fetchFeeds, 60000);
+        // Fetch every 45 seconds
+        setInterval(fetchFeeds, 45000);
 
-        // --- AUDIO ENGINE (FLUID MIXING) ---
+        // --- AUDIO ENGINE ---
         const Audio = {
-            drone: null,
-            tensionSynth: null,
-            hopeSynth: null,
-            noise: null,
-            filter: null,
-            
+            drone: null, tensionSynth: null, hopeSynth: null, noise: null, filter: null,
             async init() {
                 await Tone.start();
                 const master = new Tone.Reverb({decay: 8, wet: 0.5}).toDestination();
                 const limiter = new Tone.Limiter(-2).connect(master);
                 
-                // 1. Fluid Drone (Base)
                 this.filter = new Tone.AutoFilter(0.1).connect(limiter).start();
-                this.drone = new Tone.PolySynth(Tone.Synth, {
-                    oscillator: { type: "fatsine", count: 3, spread: 20 },
-                    envelope: { attack: 2, decay: 1, sustain: 1, release: 3 }
-                }).connect(this.filter);
+                this.drone = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "fatsine", count: 3, spread: 20 }, envelope: { attack: 2, decay: 1, sustain: 1, release: 3 } }).connect(this.filter);
                 this.drone.volume.value = -12;
 
-                // 2. Tension Layer (Distorted Lows)
                 const dist = new Tone.Distortion(0.4).connect(limiter);
                 this.tensionSynth = new Tone.MembraneSynth().connect(dist);
-                this.tensionSynth.volume.value = -99; // Start silent
+                this.tensionSynth.volume.value = -99; 
 
-                // 3. Hope/Tech Layer (Bright Arps)
                 const delay = new Tone.PingPongDelay("8n", 0.3).connect(limiter);
                 this.hopeSynth = new Tone.PolySynth(Tone.FMSynth).connect(delay);
                 this.hopeSynth.volume.value = -99;
 
-                // 4. Noise Layer (Texture)
                 this.noise = new Tone.Noise("pink").connect(new Tone.Filter(500, "lowpass").connect(limiter));
-                this.noise.start();
-                this.noise.volume.value = -99;
+                this.noise.start(); this.noise.volume.value = -99;
 
-                // Start Background Chords
                 this.startLoops();
                 isAudioReady = true;
             },
-
             startLoops() {
-                // Drone Chords
-                const chords = [["C3","G3","C4"], ["A2","E3","A3"], ["F2","C3","F3"]];
+                const chords = [["C3","G3","C4"], ["A2","E3","A3"], ["F2","C3","F3"], ["G2","D3","G3"]];
                 new Tone.Loop(t => {
                     const c = chords[Math.floor(Math.random()*chords.length)];
                     this.drone.triggerAttackRelease(c, "8m", t);
                 }, "10m").start(0);
                 Tone.Transport.start();
             },
-
-            // 毎フレーム呼ばれて音響パラメータを更新
             updateMix() {
                 if(!isAudioReady) return;
-
-                // Smoothly ramp volumes based on global mood state
-                // Tension -> Volume of MembraneSynth & Distortion amount
-                const tensionVol = -30 + (appState.tension * 20); // -30 to -10
+                const tensionVol = -30 + (appState.tension * 20);
                 if(appState.tension < 0.1) this.tensionSynth.volume.rampTo(-99, 1);
                 else this.tensionSynth.volume.rampTo(tensionVol, 0.5);
-
-                // Harmony -> Volume of FM Synth
                 const harmonyVol = -30 + (appState.harmony * 15); 
                 this.hopeSynth.volume.rampTo(harmonyVol, 1);
-
-                // Noise -> Based on Tech/Chaos
-                const noiseVol = -60 + (appState.noise * 40); // -60 to -20
+                const noiseVol = -60 + (appState.noise * 40); 
                 this.noise.volume.rampTo(noiseVol, 1);
-
-                // Update UI Bars
-                document.getElementById('bar-harmony').style.width = (appState.harmony * 100) + "%";
-                document.getElementById('bar-tension').style.width = (appState.tension * 100) + "%";
-                document.getElementById('bar-noise').style.width = (appState.noise * 100) + "%";
             },
-
             triggerNote(type) {
                 if(!isAudioReady) return;
                 const now = Tone.now();
-                
-                // Trigger melodic events based on type
-                if(type === TYPE_CRISIS) {
-                    this.tensionSynth.triggerAttackRelease("A1", "8n", now);
-                } else if(type === TYPE_HOPE || type === TYPE_ART) {
-                    const note = ["C5","D5","E5","G5"][Math.floor(Math.random()*4)];
-                    this.hopeSynth.triggerAttackRelease(note, "16n", now);
-                } else if(type === TYPE_TECH) {
-                    this.hopeSynth.triggerAttackRelease("C6", "32n", now, 0.5);
-                }
+                if(type === TYPE_CRISIS) this.tensionSynth.triggerAttackRelease("A1", "8n", now);
+                else if(type === TYPE_HOPE || type === TYPE_ART) this.hopeSynth.triggerAttackRelease(["C5","D5","E5","G5"][Math.floor(Math.random()*4)], "16n", now);
+                else if(type === TYPE_TECH) this.hopeSynth.triggerAttackRelease("C6", "32n", now, 0.5);
             }
         };
 
-        // --- 3. VISUAL ENGINE ---
+        // --- VISUAL ENGINE ---
         const scene = new THREE.Scene();
         const fogCol = new THREE.Color(0x000000);
-        // フォグ密度を下げて奥まで見えるように変更
         scene.fog = new THREE.FogExp2(fogCol, CONFIG.fogDensity);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 1, 4000);
@@ -329,7 +306,6 @@
         const bgGroup = new THREE.Group();
         scene.add(bgGroup); scene.add(lineGroup); scene.add(wordGroup);
 
-        // Stars
         const pGeo = new THREE.BufferGeometry();
         const pPos = [];
         for(let i=0; i<CONFIG.particleCount; i++) pPos.push((Math.random()-0.5)*5000, (Math.random()-0.5)*5000, (Math.random()-0.5)*5000);
@@ -337,7 +313,6 @@
         const pMat = new THREE.PointsMaterial({ color: 0x888888, size: 3, transparent: true, opacity: 0.5 });
         bgGroup.add(new THREE.Points(pGeo, pMat));
 
-        // Lines
         const lineGeo = new THREE.BufferGeometry();
         const linePos = new Float32Array(CONFIG.maxLines * 6);
         const lineCols = new Float32Array(CONFIG.maxLines * 6);
@@ -356,6 +331,7 @@
                 case TYPE_TECH:   return { hex:"#00ffff", r:0, g:1, b:1 };
                 case TYPE_NATURE: return { hex:"#00ff44", r:0, g:1, b:0.3 };
                 case TYPE_ART:    return { hex:"#cc66ff", r:0.8, g:0.4, b:1 };
+                case TYPE_MONEY:  return { hex:"#4488ff", r:0.2, g:0.5, b:1 }; // Blue for Money
                 default:          return { hex:"#aaaaaa", r:0.6, g:0.6, b:0.6 };
             }
         }
@@ -363,7 +339,7 @@
         function createTexture(text, source, type) {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            const wSize = 80; // Bigger font
+            const wSize = 80; 
             const sSize = 24;
             
             ctx.font = `bold ${wSize}px "Shippori Mincho", serif`;
@@ -378,12 +354,10 @@
             
             const col = getGenreColor(type);
             
-            // Main Word
             ctx.shadowColor = col.hex; ctx.shadowBlur = 40; ctx.fillStyle = col.hex;
             ctx.font = `bold ${wSize}px "Shippori Mincho", serif`;
             ctx.fillText(text, width/2, 10);
             
-            // Source Label
             ctx.shadowBlur = 0; ctx.fillStyle = (appState.mode === 'day') ? "#666666" : "#888888";
             ctx.font = `500 ${sSize}px "Roboto Mono", monospace`;
             ctx.fillText(source, width/2, wSize + 25);
@@ -394,9 +368,8 @@
         function spawnWord() {
             if(wordBuffer.length === 0) return;
             const data = wordBuffer.shift();
-            if(wordBuffer.length < 50) wordBuffer.push(data); // Keep looping
+            if(wordBuffer.length < 50) wordBuffer.push(data);
 
-            // Update Mood State
             if(data.type === TYPE_CRISIS) appState.tension = Math.min(1, appState.tension + 0.2);
             if(data.type === TYPE_HOPE || data.type === TYPE_ART) appState.harmony = Math.min(1, appState.harmony + 0.1);
             if(data.type === TYPE_TECH) appState.noise = Math.min(1, appState.noise + 0.1);
@@ -410,7 +383,6 @@
             const range = 2500;
             sprite.position.set((Math.random()-0.5)*range, (Math.random()-0.5)*range*0.6, (Math.random()-0.5)*2000);
             
-            // Base Size + Random Variation
             const size = Math.max(CONFIG.minSize, CONFIG.baseSize + Math.random() * 60);
             sprite.scale.set(size * ratio, size, 1);
             
@@ -422,7 +394,6 @@
             });
         }
 
-        // --- ANIMATION LOOP ---
         const simplex = new SimplexNoise();
         let time = 0;
 
@@ -430,58 +401,39 @@
             requestAnimationFrame(animate);
             time += 0.001;
 
-            // Decay Moods
-            appState.tension *= 0.995;
-            appState.harmony *= 0.995;
-            appState.noise *= 0.995;
+            appState.tension *= 0.995; appState.harmony *= 0.995; appState.noise *= 0.995;
             Audio.updateMix();
 
-            // Colors
             let bgHex = (appState.mode === 'day') ? 0xf2f2f2 : 0x020205;
             let bgCol = new THREE.Color(bgHex);
             scene.background = scene.background ? scene.background.lerp(bgCol, 0.01) : bgCol;
             fogCol.lerp(bgCol, 0.01); scene.fog.color.copy(fogCol);
             
-            // Flash background on high tension
-            if(appState.tension > 0.8 && Math.random() > 0.95) {
-                scene.background.setHex(0x220000);
-            }
+            if(appState.tension > 0.8 && Math.random() > 0.95) scene.background.setHex(0x220000);
 
             bgGroup.rotation.y = time * 0.02;
 
             for(let i = activeSprites.length - 1; i >= 0; i--) {
                 const s = activeSprites[i]; s.age += 16;
-                
                 let op = 1;
                 if(s.age < s.fadeIn) op = s.age / s.fadeIn;
                 else if (s.age > s.life - s.fadeOut) op = (s.life - s.age) / s.fadeOut;
                 s.mesh.material.opacity = op;
-
                 s.mesh.position.add(s.velocity);
                 const n = simplex.noise3D(s.mesh.position.x*0.001, s.mesh.position.y*0.001, time);
-                s.mesh.position.y += n * 0.4;
-
-                // Day mode invert
-                if(appState.mode === 'day' && s.type === TYPE_NEUTRAL) s.mesh.material.color.setHex(0x222222);
-                else s.mesh.material.color.setHex(0xffffff);
-
-                if(s.age > s.life) {
-                    scene.remove(s.mesh); s.mesh.material.map.dispose(); s.mesh.material.dispose(); activeSprites.splice(i, 1);
-                }
+                s.mesh.position.y += n * 0.5;
+                if(s.age > s.life) { scene.remove(s.mesh); s.mesh.material.map.dispose(); s.mesh.material.dispose(); activeSprites.splice(i, 1); }
             }
 
-            // Connections
             let lineIdx = 0, colIdx = 0;
             const connectSq = CONFIG.connectDist * CONFIG.connectDist;
             const lineBaseOp = (appState.mode==='day') ? 0.6 : 0.3;
 
             for(let i=0; i<activeSprites.length; i++) {
                 for(let k=1; k<8; k++) {
-                    const j = (i + k*7) % activeSprites.length; 
-                    if(i===j) continue;
+                    const j = (i + k*7) % activeSprites.length; if(i===j) continue;
                     const s1 = activeSprites[i]; const s2 = activeSprites[j];
                     if(s1.mesh.material.opacity < 0.2 || s2.mesh.material.opacity < 0.2) continue;
-
                     const d2 = s1.mesh.position.distanceToSquared(s2.mesh.position);
                     if(d2 < connectSq) {
                         let r=0.5, g=0.5, b=0.5, isStrong=false;
@@ -492,7 +444,6 @@
                             if(appState.mode==='day') { r=0.7; g=0.7; b=0.7; }
                             else { r=0.3; g=0.3; b=0.3; }
                         }
-
                         if(isStrong && lineIdx < CONFIG.maxLines * 6) {
                             const p1=s1.mesh.position; const p2=s2.mesh.position;
                             linePos[lineIdx++]=p1.x; linePos[lineIdx++]=p1.y; linePos[lineIdx++]=p1.z;
@@ -528,7 +479,6 @@
             animate();
         });
 
-        window.toggleLog = toggleLog;
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth/window.innerHeight;
             camera.updateProjectionMatrix();
