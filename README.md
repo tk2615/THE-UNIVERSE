@@ -7,13 +7,14 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@800&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght=800&family=Roboto+Mono:wght=500&display=swap" rel="stylesheet">
     
     <style>
+        /* (前回のスタイルとほぼ同じ。微修正のみ) */
         body { margin: 0; overflow: hidden; background-color: #000; color: white; font-family: 'Shippori Mincho', serif; transition: background-color 2s ease; }
         #canvas-container { width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; z-index: 1; }
         
-        /* HUD */
+        /* HUD (mix-blend-mode: difference で色反転に対応) */
         #hud {
             position: absolute; top: 30px; left: 30px; z-index: 20;
             font-family: 'Roboto Mono', monospace; font-size: 11px;
@@ -22,11 +23,12 @@
         }
         .hud-val { font-weight: 700; margin-left: 5px; }
 
-        /* Source List Display */
+        /* Source List Display (右下: 白背景時も見えるように色調整) */
         #source-list {
             position: absolute; bottom: 30px; right: 30px; z-index: 20;
-            font-family: 'Roboto Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.4);
+            font-family: 'Roboto Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.6);
             text-align: right; pointer-events: none; line-height: 1.4;
+            transition: color 1s ease;
         }
 
         /* Overlay */
@@ -44,11 +46,16 @@
         }
         #start-btn:hover { background: white; color: black; box-shadow: 0 0 50px rgba(255,255,255,0.5); transform: scale(1.05); }
         
+        /* Log (左下) */
         #sys-log {
             position: absolute; bottom: 30px; left: 30px; z-index: 20;
             font-family: 'Roboto Mono', monospace; font-size: 10px; color: #00ffaa;
-            pointer-events: none; opacity: 0.7; width: 300px;
+            pointer-events: none; opacity: 0.7; width: 300px; transition: color 1s ease;
         }
+        
+        /* Control Button */
+        #controls { position: absolute; top: 30px; right: 30px; z-index: 30; }
+        .btn { background: rgba(128,128,128,0.2); border: 1px solid rgba(128,128,128,0.5); color: #fff; padding: 8px 16px; cursor: pointer; border-radius: 20px; backdrop-filter: blur(5px); font-size: 10px; mix-blend-mode: difference; }
     </style>
 </head>
 <body>
@@ -66,7 +73,12 @@
     </div>
 
     <div id="sys-log">Initializing...</div>
+    
     <div id="source-list">ACTIVE SOURCES WILL APPEAR HERE</div>
+
+    <div id="controls">
+        <button class="btn" onclick="toggleLog()">LOG ON/OFF</button>
+    </div>
 
     <div id="canvas-container"></div>
 
@@ -86,35 +98,26 @@
             fogDensity: 0.0004   
         };
 
-        // --- EXPANDED SOURCE LIST (25+) ---
+        // --- EXPANDED SOURCE LIST ---
         const ALL_FEEDS = [
-            // JP NEWS
             { name: "NHK NEWS", url: "https://www3.nhk.or.jp/rss/news/cat0.xml" },
             { name: "YAHOO! TOP", url: "https://news.yahoo.co.jp/rss/topics/top-picks.xml" },
             { name: "YAHOO! SCI", url: "https://news.yahoo.co.jp/rss/topics/science.xml" },
             { name: "BUSINESS INSIDER", url: "https://www.businessinsider.jp/feed/index.xml" },
-            
-            // GLOBAL NEWS
             { name: "BBC WORLD", url: "https://feeds.bbci.co.uk/news/world/rss.xml" },
             { name: "REUTERS", url: "https://www.reutersagency.com/feed/?best-topics=political-general&post_type=best" },
             { name: "CNN", url: "http://rss.cnn.com/rss/edition.rss" },
             { name: "AL JAZEERA", url: "https://www.aljazeera.com/xml/rss/all.xml" },
-            
-            // TECH & SCIENCE
             { name: "WIRED", url: "https://www.wired.com/feed/rss" },
             { name: "GIZMODO JP", url: "https://www.gizmodo.jp/index.xml" },
             { name: "TECHCRUNCH", url: "https://techcrunch.com/feed/" },
             { name: "NASA", url: "https://www.nasa.gov/rss/dyn/breaking_news.rss" },
             { name: "SPACE.COM", url: "https://www.space.com/feeds/all" },
             { name: "NAT GEO", url: "https://www.nationalgeographic.com/ngm/index.rss" },
-            
-            // CULTURE & ART
             { name: "ART NEWS", url: "https://www.artnews.com/feed/" },
             { name: "DEZEEN", url: "https://www.dezeen.com/feed/" },
             { name: "HYPEBEAST", url: "https://hypebeast.com/feed" },
             { name: "VOGUE", url: "https://www.vogue.com/feed/rss" },
-            
-            // ECONOMY
             { name: "FORBES", url: "https://www.forbes.com/most-popular/feed/" },
             { name: "FINANCIAL TIMES", url: "https://www.ft.com/?format=rss" }
         ];
@@ -144,16 +147,28 @@
         // --- UTILS ---
         function log(msg) {
             const el = document.getElementById('sys-log');
+            // 白背景時の色変更に対応
+            el.style.color = (appState.mode === 'day') ? '#333333' : '#00ffaa';
             el.innerText = "> " + msg;
+        }
+        function toggleLog() {
+            const el = document.getElementById('sys-log');
+            el.style.display = (el.style.display === 'none') ? 'block' : 'none';
         }
         function updateTime() {
             const now = new Date();
             document.getElementById('clock-display').innerText = now.toLocaleTimeString();
             const h = now.getHours();
-            if(h>=5 && h<8) appState.mode='early';
-            else if(h>=8 && h<16) appState.mode='day';
-            else if(h>=16 && h<19) appState.mode='evening';
-            else appState.mode='night';
+            let newMode = 'night';
+            if(h>=4 && h<6) newMode='early';
+            else if(h>=6 && h<10) newMode='morning';
+            else if(h>=10 && h<16) newMode='day'; // 昼
+            else if(h>=16 && h<19) newMode='evening';
+            appState.mode = newMode;
+            
+            // 右下のソースリストの色を背景に合わせて切り替え
+            const sourceListEl = document.getElementById('source-list');
+            sourceListEl.style.color = (appState.mode === 'day') ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.6)';
         }
         setInterval(updateTime, 1000);
 
@@ -169,16 +184,14 @@
             } catch(e){}
         }
 
-        // --- DATA ENGINE ---
+        // --- DATA ENGINE (FEED FETCHING IS AS BEFORE) ---
         const segmenter = new Intl.Segmenter("ja-JP", { granularity: "word" });
         function decodeEntity(str) { const t=document.createElement("textarea"); t.innerHTML=str; return t.value; }
 
         async function fetchFeeds() {
-            // Randomly select 8 feeds to fetch this cycle to allow variety and avoid rate limits
             const shuffled = ALL_FEEDS.sort(() => 0.5 - Math.random());
             const selectedFeeds = shuffled.slice(0, 8);
             
-            // Update Source Display
             const sourceListEl = document.getElementById('source-list');
             sourceListEl.innerHTML = "CURRENT SOURCES:<br>" + selectedFeeds.map(f => f.name).join("<br>");
 
@@ -234,32 +247,26 @@
             wordBuffer.push({ text: disp, type: type, source: source });
         }
         
-        // Fetch every 45 seconds
         setInterval(fetchFeeds, 45000);
 
-        // --- AUDIO ENGINE ---
+        // --- AUDIO ENGINE (UNCHANGED) ---
         const Audio = {
             drone: null, tensionSynth: null, hopeSynth: null, noise: null, filter: null,
             async init() {
                 await Tone.start();
                 const master = new Tone.Reverb({decay: 8, wet: 0.5}).toDestination();
                 const limiter = new Tone.Limiter(-2).connect(master);
-                
                 this.filter = new Tone.AutoFilter(0.1).connect(limiter).start();
                 this.drone = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "fatsine", count: 3, spread: 20 }, envelope: { attack: 2, decay: 1, sustain: 1, release: 3 } }).connect(this.filter);
                 this.drone.volume.value = -12;
-
                 const dist = new Tone.Distortion(0.4).connect(limiter);
                 this.tensionSynth = new Tone.MembraneSynth().connect(dist);
                 this.tensionSynth.volume.value = -99; 
-
                 const delay = new Tone.PingPongDelay("8n", 0.3).connect(limiter);
                 this.hopeSynth = new Tone.PolySynth(Tone.FMSynth).connect(delay);
                 this.hopeSynth.volume.value = -99;
-
                 this.noise = new Tone.Noise("pink").connect(new Tone.Filter(500, "lowpass").connect(limiter));
                 this.noise.start(); this.noise.volume.value = -99;
-
                 this.startLoops();
                 isAudioReady = true;
             },
@@ -331,8 +338,9 @@
                 case TYPE_TECH:   return { hex:"#00ffff", r:0, g:1, b:1 };
                 case TYPE_NATURE: return { hex:"#00ff44", r:0, g:1, b:0.3 };
                 case TYPE_ART:    return { hex:"#cc66ff", r:0.8, g:0.4, b:1 };
-                case TYPE_MONEY:  return { hex:"#4488ff", r:0.2, g:0.5, b:1 }; // Blue for Money
-                default:          return { hex:"#aaaaaa", r:0.6, g:0.6, b:0.6 };
+                case TYPE_MONEY:  return { hex:"#4488ff", r:0.2, g:0.5, b:1 };
+                // 昼モード（白背景）の時のニュートラルカラーは黒系にする
+                default:          return (appState.mode === 'day') ? { hex:"#333333", r:0.2, g:0.2, b:0.2 } : { hex:"#aaaaaa", r:0.6, g:0.6, b:0.6 };
             }
         }
 
@@ -354,11 +362,20 @@
             
             const col = getGenreColor(type);
             
-            ctx.shadowColor = col.hex; ctx.shadowBlur = 40; ctx.fillStyle = col.hex;
+            // 1. メインの単語
+            // ニュートラル以外は常にジャンルカラー（鮮やかな色）を使う
+            let mainColor = (type === TYPE_NEUTRAL) ? col.hex : col.hex;
+
+            ctx.shadowColor = (appState.mode === 'day') ? "rgba(0,0,0,0.1)" : col.hex; // 影の色を調整
+            ctx.shadowBlur = (appState.mode === 'day') ? 10 : 40;
+            ctx.fillStyle = mainColor;
             ctx.font = `bold ${wSize}px "Shippori Mincho", serif`;
             ctx.fillText(text, width/2, 10);
             
-            ctx.shadowBlur = 0; ctx.fillStyle = (appState.mode === 'day') ? "#666666" : "#888888";
+            // 2. ソースラベル
+            ctx.shadowBlur = 0; 
+            // 白背景時は暗いグレー、それ以外は明るいグレー
+            ctx.fillStyle = (appState.mode === 'day') ? "#666666" : "#888888";
             ctx.font = `500 ${sSize}px "Roboto Mono", monospace`;
             ctx.fillText(source, width/2, wSize + 25);
 
@@ -376,8 +393,11 @@
             
             Audio.triggerNote(data.type);
 
+            // テクスチャを再生成することで、最新の appState.mode に基づいた色になる
             const { tex, ratio, col } = createTexture(data.text, data.source, data.type);
-            const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+            
+            // THREE.jsのスプライト自体は白くしておき、テクスチャの色をそのまま反映させる
+            const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0, blending: THREE.NormalBlending, depthWrite: false, color: 0xffffff });
             const sprite = new THREE.Sprite(mat);
             
             const range = 2500;
@@ -403,8 +423,15 @@
 
             appState.tension *= 0.995; appState.harmony *= 0.995; appState.noise *= 0.995;
             Audio.updateMix();
+            
+            // 背景色とフォグの更新
+            let bgHex;
+            if (appState.mode === 'early') bgHex = 0x101030;
+            else if (appState.mode === 'morning') bgHex = 0x88ccff;
+            else if (appState.mode === 'day') bgHex = 0xf2f2f2; // 白背景
+            else if (appState.mode === 'evening') bgHex = 0x330511;
+            else bgHex = 0x020205;
 
-            let bgHex = (appState.mode === 'day') ? 0xf2f2f2 : 0x020205;
             let bgCol = new THREE.Color(bgHex);
             scene.background = scene.background ? scene.background.lerp(bgCol, 0.01) : bgCol;
             fogCol.lerp(bgCol, 0.01); scene.fog.color.copy(fogCol);
@@ -425,9 +452,10 @@
                 if(s.age > s.life) { scene.remove(s.mesh); s.mesh.material.map.dispose(); s.mesh.material.dispose(); activeSprites.splice(i, 1); }
             }
 
+            // Connections
             let lineIdx = 0, colIdx = 0;
             const connectSq = CONFIG.connectDist * CONFIG.connectDist;
-            const lineBaseOp = (appState.mode==='day') ? 0.6 : 0.3;
+            const lineBaseOp = (appState.mode==='day') ? 0.6 : 0.3; // 昼間は線の視認性も高める
 
             for(let i=0; i<activeSprites.length; i++) {
                 for(let k=1; k<8; k++) {
@@ -436,14 +464,22 @@
                     if(s1.mesh.material.opacity < 0.2 || s2.mesh.material.opacity < 0.2) continue;
                     const d2 = s1.mesh.position.distanceToSquared(s2.mesh.position);
                     if(d2 < connectSq) {
-                        let r=0.5, g=0.5, b=0.5, isStrong=false;
+                        let r, g, b, isStrong=false;
+                        
+                        // 接続線の色も背景に合わせて調整
                         if(s1.type === s2.type && s1.type !== TYPE_NEUTRAL) {
-                            isStrong = true; r = s1.col.r; g = s1.col.g; b = s1.col.b;
+                            isStrong = true; r = s1.col.r; g = s1.col.g; b = s1.col.b; // ジャンルカラー
                         } else if(d2 < connectSq * 0.2) {
                             isStrong = true;
-                            if(appState.mode==='day') { r=0.7; g=0.7; b=0.7; }
-                            else { r=0.3; g=0.3; b=0.3; }
+                            // ニュートラルな接続の色
+                            if(appState.mode==='day') { r=0.1; g=0.1; b=0.1; } // 昼は黒線
+                            else { r=0.3; g=0.3; b=0.3; } // 夜はグレー線
+                        } else {
+                            // 遠い線は薄い色
+                            if(appState.mode==='day') { r=0.5; g=0.5; b=0.5; }
+                            else { r=0.1; g=0.1; b=0.1; }
                         }
+
                         if(isStrong && lineIdx < CONFIG.maxLines * 6) {
                             const p1=s1.mesh.position; const p2=s2.mesh.position;
                             linePos[lineIdx++]=p1.x; linePos[lineIdx++]=p1.y; linePos[lineIdx++]=p1.z;
@@ -479,6 +515,7 @@
             animate();
         });
 
+        window.toggleLog = toggleLog;
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth/window.innerHeight;
             camera.updateProjectionMatrix();
