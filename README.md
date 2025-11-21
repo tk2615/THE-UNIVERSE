@@ -6,11 +6,35 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght=800&family=Roboto+Mono:wght=500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@800&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
     
     <style>
-        /* (前回のスタイルとほぼ同じ。微修正のみ) */
-        body { margin: 0; overflow: hidden; background-color: #000; color: white; font-family: 'Shippori Mincho', serif; transition: background-color 2s ease; }
+        /* --- 基底スタイル --- */
+        body { 
+            margin: 0; overflow: hidden; color: white; 
+            font-family: 'Shippori Mincho', serif;
+            
+            /* グラデーションの変数とトランジション */
+            --c1: #020205; 
+            --c2: #0a0a1a;
+            --c3: #000000;
+            --c4: #030308;
+            
+            /* CSS変数が切り替わっても滑らかに遷移するための設定 */
+            background: linear-gradient(-45deg, var(--c1), var(--c2), var(--c3), var(--c4));
+            background-size: 400% 400%; /* 動くグラデーションのための拡大 */
+            animation: gradient-shift 60s ease infinite; /* 動きを60秒に調整 */
+            
+            /* bodyのcolor（テキスト色）のトランジションは残す */
+            transition: color 1s ease;
+        }
+        
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
         #canvas-container { width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; z-index: 1; }
         
         /* HUD (mix-blend-mode: difference で色反転に対応) */
@@ -67,8 +91,8 @@
 
     <div id="hud">
         <div>TIME <span id="clock-display" class="hud-val">--:--:--</span></div>
-        <div>LOC  <span id="loc-display" class="hud-val">Scanning...</span></div>
-        <div>ENV  <span id="env-display" class="hud-val">--</span></div>
+        <div>LOC <span id="loc-display" class="hud-val">Scanning...</span></div>
+        <div>ENV <span id="env-display" class="hud-val">--</span></div>
     </div>
 
     <div id="sys-log">Initializing...</div>
@@ -88,16 +112,16 @@
     <script>
         // --- CONFIGURATION ---
         const CONFIG = {
-            spawnRate: 100,      
-            wordLife: 40000,     
-            baseSize: 60,        
-            minSize: 40,         
-            connectDist: 500,    
+            spawnRate: 100,     
+            wordLife: 40000,    
+            baseSize: 60,       
+            minSize: 40,        
+            connectDist: 500,   
             particleCount: 4000,
-            fogDensity: 0.0004   
+            fogDensity: 0.0004  
         };
 
-        // --- EXPANDED SOURCE LIST ---
+        // --- EXPANDED SOURCE LIST & CLASSIFIERS (省略なし) ---
         const ALL_FEEDS = [
             { name: "NHK NEWS", url: "https://www3.nhk.or.jp/rss/news/cat0.xml" },
             { name: "YAHOO! TOP", url: "https://news.yahoo.co.jp/rss/topics/top-picks.xml" },
@@ -127,11 +151,11 @@
         const TYPE_NEUTRAL=0, TYPE_HOPE=1, TYPE_CRISIS=2, TYPE_TECH=3, TYPE_NATURE=4, TYPE_ART=5, TYPE_MONEY=6;
         const CLASSIFIER = {
             crisis: ["WAR","CRISIS","DEATH","KILL","ATTACK","DANGER","WARNING","BOMB","VICTIM","戦争","危機","災害","殺害","事故","警報","死亡","脅威","爆発","炎上"],
-            hope:   ["PEACE","WIN","HOPE","SUCCESS","JOY","BEST","HEAL","LOVE","SAVE","VICTORY","平和","希望","支援","回復","優勝","成功","愛","救助","勝利","祝福","金メダル"],
-            tech:   ["AI","SPACE","DATA","FUTURE","CYBER","QUANTUM","ROBOT","APP","CODE","APPLE","GOOGLE","宇宙","未来","技術","開発","人工知能","量子","ロケット","電脳"],
+            hope:  ["PEACE","WIN","HOPE","SUCCESS","JOY","BEST","HEAL","LOVE","SAVE","VICTORY","平和","希望","支援","回復","優勝","成功","愛","救助","勝利","祝福","金メダル"],
+            tech:  ["AI","SPACE","DATA","FUTURE","CYBER","QUANTUM","ROBOT","APP","CODE","APPLE","GOOGLE","宇宙","未来","技術","開発","人工知能","量子","ロケット","電脳"],
             nature: ["EARTH","CLIMATE","OCEAN","FOREST","ANIMAL","PLANET","STORM","HEAT","GREEN","地球","環境","海","森","気候","動物","台風","猛暑","温暖化","自然"],
-            art:    ["ART","SOUL","COLOR","MIND","DREAM","POEM","MUSIC","FILM","IDEA","DESIGN","芸術","魂","夢","思考","色","哲学","映画","音楽","言葉","感性","作品"],
-            money:  ["MARKET","STOCK","MONEY","DOLLAR","PRICE","TRADE","ECONOMY","BITCOIN","株","円","ドル","経済","市場","投資","価格","値上げ","金融"]
+            art:   ["ART","SOUL","COLOR","MIND","DREAM","POEM","MUSIC","FILM","IDEA","DESIGN","芸術","魂","夢","思考","色","哲学","映画","音楽","言葉","感性","作品"],
+            money: ["MARKET","STOCK","MONEY","DOLLAR","PRICE","TRADE","ECONOMY","BITCOIN","株","円","ドル","経済","市場","投資","価格","値上げ","金融"]
         };
         const STOP_WORDS = ["THE","AND","FOR","WITH","NEWS","LIVE","FROM","THAT","REPORT","NEW","VIDEO","SAYS","YOUR","あ","い","う","え","お","の","に","は","を","が","で","て","と","も","し","た","る","こと","ます","です","さん","など","いる","ある","する","なる","ため"];
         const BACKUP = [{t:"System",s:"BACKUP",y:TYPE_TECH},{t:"Loading",s:"BACKUP",y:TYPE_NEUTRAL},{t:"Cosmos",s:"BACKUP",y:TYPE_NATURE}];
@@ -139,35 +163,111 @@
         let wordBuffer = [];
         let appState = { 
             mode: 'night',
-            tension: 0, harmony: 0.5, noise: 0
+            tension: 0, harmony: 0.5, noise: 0,
+            targetFogCol: new THREE.Color(0x020205),
+            currentBgCols: [], // 初期化時に設定
+            targetPalette: null // 初期化時に設定
         };
         let isAudioReady = false;
+
+        // --- カラーパレットの定義 ---
+        const COLOR_PALETTES = {
+            night: { // 夜: 黒グラデーション
+                hexes: ['#020205', '#0a0a1a', '#000000', '#030308'],
+                fog: 0x020205, isLight: false
+            },
+            early: { // 早朝: 薄暗い水色グラデーション
+                hexes: ['#101030', '#304060', '#182848', '#305070'],
+                fog: 0x304060, isLight: false
+            },
+            morning: { // 朝: 薄い黄色グラデーション
+                hexes: ['#ffeeaa', '#ffedc0', '#fff7e0', '#ffeccc'],
+                fog: 0xffedc0, isLight: true
+            },
+            day: { // 昼: 白のグラデーション
+                hexes: ['#ffffff', '#f2f2f2', '#e8e8e8', '#f5f5f5'],
+                fog: 0xf2f2f2, isLight: true
+            },
+            evening: { // 夕方: オレンジグラデーション
+                hexes: ['#ff8c00', '#ff4500', '#800000', '#b22222'],
+                fog: 0x800000, isLight: false
+            }
+        };
+
+        // 最後にグラデーションのパレットが更新された時刻 (分)
+        let lastPaletteMinute = -1; 
 
         // --- UTILS ---
         function log(msg) {
             const el = document.getElementById('sys-log');
-            // 白背景時の色変更に対応
-            el.style.color = (appState.mode === 'day') ? '#333333' : '#00ffaa';
+            const isLight = (appState.mode === 'day' || appState.mode === 'morning');
+            el.style.color = isLight ? '#333333' : '#00ffaa';
             el.innerText = "> " + msg;
         }
         function toggleLog() {
             const el = document.getElementById('sys-log');
             el.style.display = (el.style.display === 'none') ? 'block' : 'none';
         }
+
+        // 現在のモードのカラーパレットで currentBgCols を初期化する
+        function setInitialCurrentBgCols(mode) {
+            const palette = COLOR_PALETTES[mode];
+            appState.currentBgCols = palette.hexes.map(hex => new THREE.Color(hex));
+        }
+
+        // 現在のモードに基づいて、次の目標カラーパレットとフォグ色を設定
+        function setTargetPalette(mode) {
+            const palette = COLOR_PALETTES[mode];
+            appState.targetPalette = palette.hexes.map(hex => new THREE.Color(hex));
+            appState.targetFogCol.setHex(palette.fog);
+        }
+        
+        // HUD, Log, Source List の色を新しいモードに合わせて切り替え
+        function updateHUDColors(mode) {
+            const palette = COLOR_PALETTES[mode];
+            const isLight = palette.isLight;
+            const sourceListEl = document.getElementById('source-list');
+            sourceListEl.style.color = isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.6)';
+
+            // `body`の`color`属性を設定して、HUD以外のテキスト色を制御
+            document.body.style.color = isLight ? 'black' : 'white';
+            
+            // Logの色を更新 (log関数内で実行される)
+            log("Mode switched to " + mode.toUpperCase());
+            
+            // オーバーレイのスタイル更新 (非表示になっている可能性もあるが、プロパティを更新しておく)
+            const startBtn = document.getElementById('start-btn');
+            if (startBtn) {
+                startBtn.style.borderColor = isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)';
+                startBtn.style.color = isLight ? 'black' : 'white';
+                // ホバー時のシャドウも調整（Day/Morningは黒系、Night/Early/Eveningは白系）
+                startBtn.onmouseover = () => { startBtn.style.boxShadow = isLight ? '0 0 50px rgba(0,0,0,0.3)' : '0 0 50px rgba(255,255,255,0.5)'; }
+                startBtn.onmouseout = () => { startBtn.style.boxShadow = 'none'; }
+            }
+        }
+
+        // 秒単位で実行され、毎分カラーパレットを更新するトリガー
         function updateTime() {
             const now = new Date();
             document.getElementById('clock-display').innerText = now.toLocaleTimeString();
             const h = now.getHours();
+            const m = now.getMinutes();
+
             let newMode = 'night';
             if(h>=4 && h<6) newMode='early';
             else if(h>=6 && h<10) newMode='morning';
-            else if(h>=10 && h<16) newMode='day'; // 昼
+            else if(h>=10 && h<16) newMode='day';
             else if(h>=16 && h<19) newMode='evening';
-            appState.mode = newMode;
             
-            // 右下のソースリストの色を背景に合わせて切り替え
-            const sourceListEl = document.getElementById('source-list');
-            sourceListEl.style.color = (appState.mode === 'day') ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.6)';
+            // 分が変わるか、モードが変わったらパレットを更新
+            if(appState.mode !== newMode || m !== lastPaletteMinute) {
+                appState.mode = newMode;
+                lastPaletteMinute = m;
+                
+                // 次の目標カラーパレットを設定
+                setTargetPalette(newMode);
+                updateHUDColors(newMode);
+            }
         }
         setInterval(updateTime, 1000);
 
@@ -183,7 +283,7 @@
             } catch(e){}
         }
 
-        // --- DATA ENGINE (FEED FETCHING IS AS BEFORE) ---
+        // --- DATA ENGINE (中略) ---
         const segmenter = new Intl.Segmenter("ja-JP", { granularity: "word" });
         function decodeEntity(str) { const t=document.createElement("textarea"); t.innerHTML=str; return t.value; }
 
@@ -248,7 +348,7 @@
         
         setInterval(fetchFeeds, 45000);
 
-        // --- AUDIO ENGINE (UNCHANGED) ---
+        // --- AUDIO ENGINE (中略) ---
         const Audio = {
             drone: null, tensionSynth: null, hopeSynth: null, noise: null, filter: null,
             async init() {
@@ -298,7 +398,7 @@
 
         // --- VISUAL ENGINE ---
         const scene = new THREE.Scene();
-        const fogCol = new THREE.Color(0x000000);
+        const fogCol = new THREE.Color(0x020205);
         scene.fog = new THREE.FogExp2(fogCol, CONFIG.fogDensity);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 1, 4000);
@@ -320,8 +420,10 @@
         bgGroup.add(new THREE.Points(pGeo, pMat));
 
         const lineGeo = new THREE.BufferGeometry();
-        const linePos = new Float32Array(CONFIG.maxLines * 6);
-        const lineCols = new Float32Array(CONFIG.maxLines * 6);
+        // CONFIG.maxLines が定義されていないため、仮に大きな値 1000 を使用
+        const MAX_LINES = 1000;
+        const linePos = new Float32Array(MAX_LINES * 6);
+        const lineCols = new Float32Array(MAX_LINES * 6);
         lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
         lineGeo.setAttribute('color', new THREE.BufferAttribute(lineCols, 3));
         const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending });
@@ -331,6 +433,7 @@
         const activeSprites = [];
 
         function getGenreColor(type) {
+            const isLight = (appState.mode === 'day' || appState.mode === 'morning');
             switch(type) {
                 case TYPE_CRISIS: return { hex:"#ff2222", r:1, g:0.1, b:0.1 };
                 case TYPE_HOPE:   return { hex:"#ffcc00", r:1, g:0.8, b:0 };
@@ -338,8 +441,7 @@
                 case TYPE_NATURE: return { hex:"#00ff44", r:0, g:1, b:0.3 };
                 case TYPE_ART:    return { hex:"#cc66ff", r:0.8, g:0.4, b:1 };
                 case TYPE_MONEY:  return { hex:"#4488ff", r:0.2, g:0.5, b:1 };
-                // 昼モード（白背景）の時のニュートラルカラーは黒系にする
-                default:          return (appState.mode === 'day') ? { hex:"#333333", r:0.2, g:0.2, b:0.2 } : { hex:"#aaaaaa", r:0.6, g:0.6, b:0.6 };
+                default:          return isLight ? { hex:"#333333", r:0.2, g:0.2, b:0.2 } : { hex:"#aaaaaa", r:0.6, g:0.6, b:0.6 };
             }
         }
 
@@ -360,21 +462,20 @@
             ctx.textAlign = "center"; ctx.textBaseline = "top";
             
             const col = getGenreColor(type);
+            const isLightBg = (appState.mode === 'day' || appState.mode === 'morning');
             
             // 1. メインの単語
-            // ニュートラル以外は常にジャンルカラー（鮮やかな色）を使う
             let mainColor = (type === TYPE_NEUTRAL) ? col.hex : col.hex;
 
-            ctx.shadowColor = (appState.mode === 'day') ? "rgba(0,0,0,0.1)" : col.hex; // 影の色を調整
-            ctx.shadowBlur = (appState.mode === 'day') ? 10 : 40;
+            ctx.shadowColor = isLightBg ? "rgba(0,0,0,0.1)" : col.hex; 
+            ctx.shadowBlur = isLightBg ? 10 : 40;
             ctx.fillStyle = mainColor;
             ctx.font = `bold ${wSize}px "Shippori Mincho", serif`;
             ctx.fillText(text, width/2, 10);
             
             // 2. ソースラベル
             ctx.shadowBlur = 0; 
-            // 白背景時は暗いグレー、それ以外は明るいグレー
-            ctx.fillStyle = (appState.mode === 'day') ? "#666666" : "#888888";
+            ctx.fillStyle = isLightBg ? "#666666" : "#888888";
             ctx.font = `500 ${sSize}px "Roboto Mono", monospace`;
             ctx.fillText(source, width/2, wSize + 25);
 
@@ -392,10 +493,8 @@
             
             Audio.triggerNote(data.type);
 
-            // テクスチャを再生成することで、最新の appState.mode に基づいた色になる
             const { tex, ratio, col } = createTexture(data.text, data.source, data.type);
             
-            // THREE.jsのスプライト自体は白くしておき、テクスチャの色をそのまま反映させる
             const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0, blending: THREE.NormalBlending, depthWrite: false, color: 0xffffff });
             const sprite = new THREE.Sprite(mat);
             
@@ -423,19 +522,27 @@
             appState.tension *= 0.995; appState.harmony *= 0.995; appState.noise *= 0.995;
             Audio.updateMix();
             
-            // 背景色とフォグの更新
-            let bgHex;
-            if (appState.mode === 'early') bgHex = 0x101030;
-            else if (appState.mode === 'morning') bgHex = 0x88ccff;
-            else if (appState.mode === 'day') bgHex = 0xf2f2f2; // 白背景
-            else if (appState.mode === 'evening') bgHex = 0x330511;
-            else bgHex = 0x020205;
+            // 毎秒の補間ステップを算出 (例: 1分間(60秒)で目標に到達するため)
+            const lerpFactor = 0.02; // 補間速度
 
-            let bgCol = new THREE.Color(bgHex);
-            scene.background = scene.background ? scene.background.lerp(bgCol, 0.01) : bgCol;
-            fogCol.lerp(bgCol, 0.01); scene.fog.color.copy(fogCol);
-            
-            if(appState.tension > 0.8 && Math.random() > 0.95) scene.background.setHex(0x220000);
+            // 1. 背景色の更新 (目標パレットへ補間)
+            if(appState.targetPalette && appState.currentBgCols) {
+                for(let i = 0; i < appState.currentBgCols.length; i++) {
+                    // 目標の色に近づくように補間
+                    appState.currentBgCols[i].lerp(appState.targetPalette[i], lerpFactor);
+                    
+                    // CSS変数に現在の色をセット
+                    document.body.style.setProperty(`--c${i+1}`, `#${appState.currentBgCols[i].getHexString()}`);
+                }
+                
+                // 2. フォグの更新
+                fogCol.lerp(appState.targetFogCol, lerpFactor);
+                scene.fog.color.copy(fogCol);
+            }
+
+            // 緊急時の赤フラッシュ
+            if(appState.tension > 0.8 && Math.random() > 0.95) scene.background = new THREE.Color(0x220000);
+            else scene.background = fogCol.clone(); 
 
             bgGroup.rotation.y = time * 0.02;
 
@@ -454,7 +561,9 @@
             // Connections
             let lineIdx = 0, colIdx = 0;
             const connectSq = CONFIG.connectDist * CONFIG.connectDist;
-            const lineBaseOp = (appState.mode==='day') ? 0.6 : 0.3; // 昼間は線の視認性も高める
+            const isLightBg = (appState.mode === 'day' || appState.mode === 'morning');
+            const lineBaseOp = isLightBg ? 0.6 : 0.3; 
+            const MAX_CONNECTIONS = Math.min(activeSprites.length * 4, MAX_LINES);
 
             for(let i=0; i<activeSprites.length; i++) {
                 for(let k=1; k<8; k++) {
@@ -465,21 +574,18 @@
                     if(d2 < connectSq) {
                         let r, g, b, isStrong=false;
                         
-                        // 接続線の色も背景に合わせて調整
                         if(s1.type === s2.type && s1.type !== TYPE_NEUTRAL) {
-                            isStrong = true; r = s1.col.r; g = s1.col.g; b = s1.col.b; // ジャンルカラー
+                            isStrong = true; r = s1.col.r; g = s1.col.g; b = s1.col.b;
                         } else if(d2 < connectSq * 0.2) {
                             isStrong = true;
-                            // ニュートラルな接続の色
-                            if(appState.mode==='day') { r=0.1; g=0.1; b=0.1; } // 昼は黒線
-                            else { r=0.3; g=0.3; b=0.3; } // 夜はグレー線
+                            if(isLightBg) { r=0.1; g=0.1; b=0.1; }
+                            else { r=0.3; g=0.3; b=0.3; }
                         } else {
-                            // 遠い線は薄い色
-                            if(appState.mode==='day') { r=0.5; g=0.5; b=0.5; }
+                            if(isLightBg) { r=0.5; g=0.5; b=0.5; }
                             else { r=0.1; g=0.1; b=0.1; }
                         }
 
-                        if(isStrong && lineIdx < CONFIG.maxLines * 6) {
+                        if(isStrong && lineIdx < MAX_CONNECTIONS * 6) {
                             const p1=s1.mesh.position; const p2=s2.mesh.position;
                             linePos[lineIdx++]=p1.x; linePos[lineIdx++]=p1.y; linePos[lineIdx++]=p1.z;
                             linePos[lineIdx++]=p2.x; linePos[lineIdx++]=p2.y; linePos[lineIdx++]=p2.z;
@@ -507,7 +613,13 @@
         document.getElementById('start-btn').addEventListener('click', async () => {
             document.getElementById('overlay').style.opacity = 0;
             setTimeout(() => document.getElementById('overlay').remove(), 1000);
-            updateTime(); fetchEnv();
+            
+            // 初期化処理
+            updateTime(); // 1. 初回モード判定 (appState.mode が設定される)
+            setInitialCurrentBgCols(appState.mode); // 2. 現在の背景色を初期モードに合わせてセット
+            setTargetPalette(appState.mode); // 3. 目標パレットとフォグ色をセット
+            
+            fetchEnv();
             await Audio.init();
             await fetchFeeds();
             spawnLoop();
