@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Omni-Source: THE UNIVERSE (High Contrast Fix)</title>
+    <title>Omni-Source: THE UNIVERSE (Audio & Visual Sync)</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,7 +29,7 @@
         #hud {
             position: absolute; top: 30px; left: 30px; z-index: 20;
             font-family: 'Roboto Mono', monospace; font-size: 10px;
-            line-height: 1.8; pointer-events: none; mix-blend-mode: normal; /* overlayからnormalに変更して視認性確保 */
+            line-height: 1.8; pointer-events: none; mix-blend-mode: normal;
             color: rgba(255,255,255,0.8); letter-spacing: 1px;
             transition: color 1s;
         }
@@ -112,13 +112,10 @@
             { name: "BBC WORLD", url: "https://feeds.bbci.co.uk/news/world/rss.xml" },
             { name: "CNN TOP", url: "http://rss.cnn.com/rss/edition.rss" },
             { name: "REUTERS", url: "https://www.reutersagency.com/feed/?best-topics=political-general&post_type=best" },
-            { name: "AL JAZEERA", url: "https://www.aljazeera.com/xml/rss/all.xml" },
             { name: "NASA", url: "https://www.nasa.gov/rss/dyn/breaking_news.rss" },
             { name: "TECHCRUNCH", url: "https://techcrunch.com/feed/" },
-            { name: "THE VERGE", url: "https://www.theverge.com/rss/index.xml" },
             { name: "WIRED US", url: "https://www.wired.com/feed/rss" },
             { name: "ART NEWS", url: "https://www.artnews.com/feed/" },
-            { name: "HYPEBEAST", url: "https://hypebeast.com/feed" },
             
             // Japanese
             { name: "NHK NEWS", url: "https://www3.nhk.or.jp/rss/news/cat0.xml" },
@@ -159,29 +156,37 @@
         };
         let isAudioReady = false;
 
-        // --- AUDIO ENGINE ---
-        const SCALE = ["C4", "D4", "E4", "G4", "A4", "C5", "D5", "E5"];
+        // --- SCALES & AUDIO CONFIG ---
+        const SCALES = {
+            night:   ["C3", "Eb3", "G3", "Bb3", "C4", "Eb4", "G4"], // マイナー
+            early:   ["D3", "A3", "D4", "E4", "F#4", "A4", "B4"],   // 透明感
+            morning: ["E4", "G#4", "B4", "C#5", "E5", "G#5", "B5"], // メジャー（高）
+            day:     ["C4", "D4", "E4", "G4", "A4", "C5", "D5"],    // メジャー（中）
+            evening: ["Db3", "F3", "Ab3", "C4", "Db4", "Eb4", "F4"]  // メロウ
+        };
         const BASS_NOTES = ["C2", "G2", "F2", "A1", "E2"];
 
         const Audio = {
-            drone: null, harp: null, chime: null, water: null, ground: null, bird: null, wood: null, choir: null, reverb: null,
-            
+            drone: null, harp: null, chime: null, water: null, ground: null, bird: null, wood: null, choir: null, 
+            reverb: null, autoFilter: null,
+            currentScale: SCALES.night,
+
             async init() {
                 await Tone.start();
                 Tone.Context.lookAhead = 0.1;
 
-                this.reverb = new Tone.Reverb({decay: 12, wet: 0.5}).toDestination();
+                this.reverb = new Tone.Reverb({decay: 10, wet: 0.5}).toDestination();
                 this.reverb.generate(); 
                 const masterComp = new Tone.Compressor(-30, 3).connect(this.reverb);
 
                 const filterLFO = new Tone.LFO(0.05, 200, 1000).start(); 
-                const autoFilter = new Tone.Filter(400, "lowpass").connect(masterComp);
-                filterLFO.connect(autoFilter.frequency);
+                this.autoFilter = new Tone.Filter(400, "lowpass").connect(masterComp);
+                filterLFO.connect(this.autoFilter.frequency);
 
                 this.drone = new Tone.PolySynth(Tone.FMSynth, {
                     harmonicity: 0.5, modulationIndex: 1, oscillator: { type: "sine" }, modulation: { type: "triangle" },
                     envelope: { attack: 4, decay: 4, sustain: 1, release: 8 },
-                }).connect(autoFilter);
+                }).connect(this.autoFilter);
                 this.drone.volume.value = -22; 
                 this.startDroneLoop();
 
@@ -214,6 +219,23 @@
                 isAudioReady = true;
             },
 
+            setMode(mode) {
+                if(!isAudioReady) return;
+                this.currentScale = SCALES[mode] || SCALES.night;
+                switch(mode) {
+                    case 'night':
+                        this.reverb.decay = 10; this.reverb.wet.value = 0.6; this.autoFilter.frequency.value = 200; break;
+                    case 'early':
+                        this.reverb.decay = 6; this.reverb.wet.value = 0.4; this.autoFilter.frequency.value = 400; break;
+                    case 'morning':
+                        this.reverb.decay = 3; this.reverb.wet.value = 0.2; this.autoFilter.frequency.value = 800; break;
+                    case 'day':
+                        this.reverb.decay = 1.5; this.reverb.wet.value = 0.1; this.autoFilter.frequency.value = 600; break;
+                    case 'evening':
+                        this.reverb.decay = 5; this.reverb.wet.value = 0.4; this.autoFilter.frequency.value = 300; break;
+                }
+            },
+
             startDroneLoop() {
                 new Tone.Loop(time => {
                     const note = BASS_NOTES[Math.floor(Math.random() * BASS_NOTES.length)];
@@ -230,8 +252,10 @@
                 if(!isAudioReady) return;
                 const now = Tone.now();
                 const t = now + Math.random() * 0.1;
-                const noteIdx = Math.floor(Math.random() * SCALE.length);
-                const note = SCALE[noteIdx];
+                
+                const scale = this.currentScale;
+                const noteIdx = Math.floor(Math.random() * scale.length);
+                const note = scale[noteIdx];
 
                 switch(type) {
                     case TYPE_MONEY: 
@@ -250,7 +274,12 @@
                         break;
                     case TYPE_HOPE: case TYPE_ART: 
                         this.choir.set({ harmonicity: 1 + Math.random() });
-                        if(Math.random() > 0.6) { const chord = [SCALE[noteIdx % 5], SCALE[(noteIdx+2)%5], SCALE[(noteIdx+4)%5]]; this.choir.triggerAttackRelease(chord, "1n", t); }
+                        if(Math.random() > 0.6) { 
+                            const n1 = scale[noteIdx % scale.length];
+                            const n2 = scale[(noteIdx+2) % scale.length];
+                            const n3 = scale[(noteIdx+4) % scale.length];
+                            this.choir.triggerAttackRelease([n1,n2,n3], "1n", t); 
+                        }
                         else this.choir.triggerAttackRelease(note, "2n", t);
                         break;
                     case TYPE_NATURE: 
@@ -294,34 +323,21 @@
             appState.targetFogCol.setHex(palette.fog);
         }
         
-        // --- 修正1: HUDの視認性向上 ---
         function updateHUDColors(mode) {
             const palette = COLOR_PALETTES[mode];
             const isLight = palette.isLight;
-            
-            // 明るい背景の時は、透明度を上げ黒く強調
             document.getElementById('source-list').style.color = isLight ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.4)';
             document.getElementById('hud').style.color = isLight ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
-            
-            // 全体の文字色調整
             document.body.style.color = isLight ? '#112' : '#eef';
-            
             const startBtn = document.getElementById('start-btn');
             if (startBtn) {
                 startBtn.style.borderColor = isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.3)';
                 startBtn.style.color = isLight ? '#223' : '#e0e0e0';
             }
-
-            // ボタンの視認性
             const ctrls = document.querySelectorAll('.btn');
             ctrls.forEach(btn => {
-                if(isLight) {
-                    btn.style.color = '#333';
-                    btn.style.background = 'rgba(0,0,0,0.05)';
-                } else {
-                    btn.style.color = '#aaa';
-                    btn.style.background = 'rgba(255,255,255,0.05)';
-                }
+                if(isLight) { btn.style.color = '#333'; btn.style.background = 'rgba(0,0,0,0.05)'; }
+                else { btn.style.color = '#aaa'; btn.style.background = 'rgba(255,255,255,0.05)'; }
             });
         }
 
@@ -343,6 +359,7 @@
                 lastPaletteMinute = m;
                 setTargetPalette(newMode);
                 updateHUDColors(newMode);
+                if(isAudioReady) Audio.setMode(newMode);
             }
         }
         setInterval(updateTime, 1000);
@@ -364,11 +381,9 @@
             const shuffled = ALL_FEEDS.sort(() => 0.5 - Math.random());
             const selectedFeeds = shuffled.slice(0, 8);
             document.getElementById('source-list').innerHTML = "Connected to:<br>" + selectedFeeds.map(f => f.name).join("<br>");
-
             log(`Scanning frequencies...`);
             const promises = selectedFeeds.map(f => fetch(PROXY + encodeURIComponent(f.url)).then(r=>r.ok?r.json():null).catch(e=>null));
             const results = await Promise.all(promises);
-            
             let count = 0;
             results.forEach((data, idx) => {
                 if(data && data.items) {
@@ -383,7 +398,6 @@
             const tempDiv = document.createElement("div");
             tempDiv.innerHTML = title;
             const cleanTitle = tempDiv.textContent || tempDiv.innerText || "";
-
             if(cleanTitle.match(/[亜-熙ぁ-んァ-ヶ]/)) {
                 for(const s of segmenter.segment(cleanTitle)) {
                     const word = s.segment;
@@ -455,23 +469,19 @@
 
         const activeSprites = [];
 
-        // --- 修正2: 3Dテキストの視認性向上 ---
         function getGenreColor(type) {
             const isLight = (appState.mode === 'day' || appState.mode === 'morning');
-            
             if (isLight) {
-                // 明るい背景時は濃い色を使用
                 switch(type) {
-                    case TYPE_CRISIS: return { hex:"#b71c1c", r:0.7, g:0.1, b:0.1 }; // 濃い赤
-                    case TYPE_HOPE:   return { hex:"#e65100", r:0.9, g:0.3, b:0 };   // 濃いオレンジ
-                    case TYPE_TECH:   return { hex:"#01579b", r:0, g:0.35, b:0.6 };  // 濃い青
-                    case TYPE_NATURE: return { hex:"#1b5e20", r:0.1, g:0.37, b:0.12 }; // 濃い緑
-                    case TYPE_ART:    return { hex:"#4a148c", r:0.29, g:0.08, b:0.55 }; // 濃い紫
-                    case TYPE_MONEY:  return { hex:"#0d47a1", r:0.05, g:0.28, b:0.63 }; // 濃いインディゴ
-                    default:          return { hex:"#37474f", r:0.2, g:0.28, b:0.31 };  // ダークグレー
+                    case TYPE_CRISIS: return { hex:"#b71c1c", r:0.7, g:0.1, b:0.1 };
+                    case TYPE_HOPE:   return { hex:"#e65100", r:0.9, g:0.3, b:0 };
+                    case TYPE_TECH:   return { hex:"#01579b", r:0, g:0.35, b:0.6 };
+                    case TYPE_NATURE: return { hex:"#1b5e20", r:0.1, g:0.37, b:0.12 };
+                    case TYPE_ART:    return { hex:"#4a148c", r:0.29, g:0.08, b:0.55 };
+                    case TYPE_MONEY:  return { hex:"#0d47a1", r:0.05, g:0.28, b:0.63 };
+                    default:          return { hex:"#37474f", r:0.2, g:0.28, b:0.31 };
                 }
             } else {
-                // 暗い背景時は明るいパステル色
                 switch(type) {
                     case TYPE_CRISIS: return { hex:"#ff8888", r:1, g:0.5, b:0.5 }; 
                     case TYPE_HOPE:   return { hex:"#ffddaa", r:1, g:0.85, b:0.6 }; 
@@ -501,7 +511,6 @@
             const col = getGenreColor(type);
             const isLightBg = (appState.mode === 'day' || appState.mode === 'morning');
             
-            // 明るい背景の時はグロー（影）を消してクッキリさせる
             ctx.shadowColor = isLightBg ? "rgba(0,0,0,0)" : col.hex; 
             ctx.shadowBlur = isLightBg ? 0 : 30; 
             ctx.fillStyle = col.hex;
@@ -509,7 +518,6 @@
             ctx.fillText(text, width/2, 20);
             
             ctx.shadowBlur = 0; 
-            // サブタイトルの色
             ctx.fillStyle = isLightBg ? "#555555" : "#999999";
             ctx.font = `400 ${sSize}px "Roboto Mono", monospace`;
             ctx.fillText(source, width/2, wSize + 35);
@@ -527,13 +535,9 @@
             const { tex, ratio, col } = createTexture(data.text, data.source, data.type);
             const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffffff });
             
-            // 明るい背景の時はAdditiveBlending（加算合成）だと白飛びするのでNormalにする
-            if (appState.mode === 'day' || appState.mode === 'morning') {
-                mat.blending = THREE.NormalBlending;
-            }
+            if (appState.mode === 'day' || appState.mode === 'morning') mat.blending = THREE.NormalBlending;
 
             const sprite = new THREE.Sprite(mat);
-            
             const range = 2200;
             sprite.position.set((Math.random()-0.5)*range, (Math.random()-0.5)*range*0.7, (Math.random()-0.5)*2000);
             const size = Math.max(CONFIG.minSize, CONFIG.baseSize + Math.random() * 50);
@@ -564,7 +568,6 @@
                 scene.fog.color.copy(fogCol);
             }
             scene.background = fogCol.clone();
-
             bgGroup.rotation.y = time * 0.01;
 
             for(let i = activeSprites.length - 1; i >= 0; i--) {
@@ -625,6 +628,8 @@
             setTargetPalette(appState.mode); 
             fetchEnv();
             await Audio.init();
+            // Start with the correct mode for audio
+            Audio.setMode(appState.mode);
             await fetchFeeds();
             spawnLoop();
             animate();
