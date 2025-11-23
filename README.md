@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Omni-Source: THE UNIVERSE</title>
+    <title>Omni-Source: THE UNIVERSE (High Contrast Fix)</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,8 +29,9 @@
         #hud {
             position: absolute; top: 30px; left: 30px; z-index: 20;
             font-family: 'Roboto Mono', monospace; font-size: 10px;
-            line-height: 1.8; pointer-events: none; mix-blend-mode: overlay;
+            line-height: 1.8; pointer-events: none; mix-blend-mode: normal; /* overlayからnormalに変更して視認性確保 */
             color: rgba(255,255,255,0.8); letter-spacing: 1px;
+            transition: color 1s;
         }
         .hud-val { font-weight: 400; margin-left: 10px; }
 
@@ -158,31 +159,21 @@
         };
         let isAudioReady = false;
 
-        // --- AUDIO ENGINE (INFINITE VARIATIONS) ---
+        // --- AUDIO ENGINE ---
         const SCALE = ["C4", "D4", "E4", "G4", "A4", "C5", "D5", "E5"];
         const BASS_NOTES = ["C2", "G2", "F2", "A1", "E2"];
 
         const Audio = {
-            drone: null,      
-            harp: null,       
-            chime: null,      
-            water: null,      
-            ground: null,     
-            bird: null,       
-            wood: null, 
-            choir: null,      
-            reverb: null,
+            drone: null, harp: null, chime: null, water: null, ground: null, bird: null, wood: null, choir: null, reverb: null,
             
             async init() {
                 await Tone.start();
                 Tone.Context.lookAhead = 0.1;
 
-                // 1. MASTER FX
                 this.reverb = new Tone.Reverb({decay: 12, wet: 0.5}).toDestination();
                 this.reverb.generate(); 
                 const masterComp = new Tone.Compressor(-30, 3).connect(this.reverb);
 
-                // 2. BACKGROUND DRONE (Always evolving)
                 const filterLFO = new Tone.LFO(0.05, 200, 1000).start(); 
                 const autoFilter = new Tone.Filter(400, "lowpass").connect(masterComp);
                 filterLFO.connect(autoFilter.frequency);
@@ -194,16 +185,9 @@
                 this.drone.volume.value = -22; 
                 this.startDroneLoop();
 
-                // 3. EVENT INSTRUMENTS (High Variance)
-                
-                // A. HARP (Neutral)
-                this.harp = new Tone.PolySynth(Tone.Synth, {
-                    oscillator: { type: "triangle" },
-                    envelope: { attack: 0.01, decay: 0.4, sustain: 0, release: 1 } 
-                }).connect(masterComp);
+                this.harp = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.01, decay: 0.4, sustain: 0, release: 1 } }).connect(masterComp);
                 this.harp.volume.value = -14;
 
-                // B. CHIME (Money)
                 const panner = new Tone.Panner3D().connect(masterComp);
                 this.chime = new Tone.PolySynth(Tone.FMSynth, {
                     harmonicity: 3, modulationIndex: 10, oscillator: { type: "sine" },
@@ -212,40 +196,19 @@
                 }).connect(panner);
                 this.chime.volume.value = -16;
 
-                // C. WATER (Tech)
-                this.water = new Tone.PolySynth(Tone.Synth, {
-                    oscillator: { type: "sine" },
-                    envelope: { attack: 0.005, decay: 0.3, sustain: 0, release: 0.1 }
-                }).connect(new Tone.PingPongDelay("8n", 0.3).connect(masterComp));
+                this.water = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" }, envelope: { attack: 0.005, decay: 0.3, sustain: 0, release: 0.1 } }).connect(new Tone.PingPongDelay("8n", 0.3).connect(masterComp));
                 this.water.volume.value = -14;
 
-                // D. GROUND (Crisis)
-                this.ground = new Tone.MembraneSynth({
-                    pitchDecay: 0.05, octaves: 2, oscillator: { type: "sine" },
-                    envelope: { attack: 0.01, decay: 0.8, sustain: 0.01, release: 1.4 }
-                }).connect(masterComp);
+                this.ground = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 2, oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.8, sustain: 0.01, release: 1.4 } }).connect(masterComp);
                 this.ground.volume.value = -10;
 
-                // E. CHOIR (Art/Hope)
-                this.choir = new Tone.PolySynth(Tone.AMSynth, {
-                    harmonicity: 1.5, oscillator: { type: "sine" },
-                    envelope: { attack: 0.5, decay: 1, sustain: 0.5, release: 3 },
-                    modulation: { type: "sine" }
-                }).connect(masterComp);
+                this.choir = new Tone.PolySynth(Tone.AMSynth, { harmonicity: 1.5, oscillator: { type: "sine" }, envelope: { attack: 0.5, decay: 1, sustain: 0.5, release: 3 }, modulation: { type: "sine" } }).connect(masterComp);
                 this.choir.volume.value = -14;
 
-                // F. NATURE 1 (Bird)
-                this.bird = new Tone.PolySynth(Tone.Synth, {
-                    oscillator: { type: "triangle" },
-                    envelope: { attack: 0.02, decay: 0.2, sustain: 0.1, release: 1 },
-                }).connect(new Tone.FeedbackDelay("8n", 0.4).connect(masterComp));
+                this.bird = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.02, decay: 0.2, sustain: 0.1, release: 1 }, }).connect(new Tone.FeedbackDelay("8n", 0.4).connect(masterComp));
                 this.bird.volume.value = -18;
 
-                // G. NATURE 2 (Wood)
-                this.wood = new Tone.PolySynth(Tone.MembraneSynth, {
-                    pitchDecay: 0.01, octaves: 4, oscillator: { type: "sine" },
-                    envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
-                }).connect(masterComp);
+                this.wood = new Tone.PolySynth(Tone.MembraneSynth, { pitchDecay: 0.01, octaves: 4, oscillator: { type: "sine" }, envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 } }).connect(masterComp);
                 this.wood.volume.value = -16;
 
                 isAudioReady = true;
@@ -272,63 +235,32 @@
 
                 switch(type) {
                     case TYPE_MONEY: 
-                        const bellHarm = 1 + Math.random() * 5; 
-                        this.chime.set({ harmonicity: bellHarm });
-                        if(Math.random() > 0.7) {
-                            this.chime.triggerAttackRelease(note, "32n", t);
-                            this.chime.triggerAttackRelease(note, "32n", t + 0.05);
-                        } else {
-                            this.chime.triggerAttackRelease(Tone.Frequency(note).transpose(12), "2n", t);
-                        }
+                        this.chime.set({ harmonicity: 1 + Math.random() * 5 });
+                        if(Math.random() > 0.7) { this.chime.triggerAttackRelease(note, "32n", t); this.chime.triggerAttackRelease(note, "32n", t + 0.05); }
+                        else { this.chime.triggerAttackRelease(Tone.Frequency(note).transpose(12), "2n", t); }
                         break;
-
                     case TYPE_TECH: 
-                        const decayTime = 0.1 + Math.random() * 0.4;
-                        this.water.set({ envelope: { decay: decayTime } });
-                        if(Math.random() > 0.8) {
-                            this.water.triggerAttackRelease(note, "64n", t);
-                            this.water.triggerAttackRelease(Tone.Frequency(note).transpose(12), "64n", t + 0.05);
-                        } else {
-                            this.water.triggerAttackRelease(note, "16n", t);
-                        }
+                        this.water.set({ envelope: { decay: 0.1 + Math.random() * 0.4 } });
+                        if(Math.random() > 0.8) { this.water.triggerAttackRelease(note, "64n", t); this.water.triggerAttackRelease(Tone.Frequency(note).transpose(12), "64n", t + 0.05); }
+                        else { this.water.triggerAttackRelease(note, "16n", t); }
                         break;
-
                     case TYPE_CRISIS: 
-                        if(Math.random() > 0.5) {
-                            this.ground.triggerAttackRelease("C1", "1n", t); 
-                        } else {
-                            this.ground.triggerAttackRelease("C2", "4n", t); 
-                        }
+                        if(Math.random() > 0.5) this.ground.triggerAttackRelease("C1", "1n", t); 
+                        else this.ground.triggerAttackRelease("C2", "4n", t); 
                         break;
-
-                    case TYPE_HOPE:
-                    case TYPE_ART: 
+                    case TYPE_HOPE: case TYPE_ART: 
                         this.choir.set({ harmonicity: 1 + Math.random() });
-                        if(Math.random() > 0.6) {
-                            const chord = [SCALE[noteIdx % 5], SCALE[(noteIdx+2)%5], SCALE[(noteIdx+4)%5]];
-                            this.choir.triggerAttackRelease(chord, "1n", t);
-                        } else {
-                            this.choir.triggerAttackRelease(note, "2n", t);
-                        }
+                        if(Math.random() > 0.6) { const chord = [SCALE[noteIdx % 5], SCALE[(noteIdx+2)%5], SCALE[(noteIdx+4)%5]]; this.choir.triggerAttackRelease(chord, "1n", t); }
+                        else this.choir.triggerAttackRelease(note, "2n", t);
                         break;
-
                     case TYPE_NATURE: 
-                        if(Math.random() > 0.5) {
-                            this.bird.triggerAttackRelease(Tone.Frequency(note).transpose(24), "32n", t);
-                        } else {
-                            this.wood.triggerAttackRelease(note, "16n", t);
-                        }
+                        if(Math.random() > 0.5) this.bird.triggerAttackRelease(Tone.Frequency(note).transpose(24), "32n", t);
+                        else this.wood.triggerAttackRelease(note, "16n", t);
                         break;
-
                     default: 
-                        const releaseT = 0.2 + Math.random() * 2;
-                        this.harp.set({ envelope: { release: releaseT } });
-                        if(Math.random() > 0.8) {
-                            this.harp.triggerAttackRelease(note, "8n", t);
-                            this.harp.triggerAttackRelease(Tone.Frequency(note).transpose(4), "8n", t + 0.05);
-                        } else {
-                            this.harp.triggerAttackRelease(note, "4n", t);
-                        }
+                        this.harp.set({ envelope: { release: 0.2 + Math.random() * 2 } });
+                        if(Math.random() > 0.8) { this.harp.triggerAttackRelease(note, "8n", t); this.harp.triggerAttackRelease(Tone.Frequency(note).transpose(4), "8n", t + 0.05); }
+                        else this.harp.triggerAttackRelease(note, "4n", t);
                         break;
                 }
             }
@@ -345,10 +277,7 @@
 
         let lastPaletteMinute = -1; 
 
-        function log(msg) {
-            const el = document.getElementById('sys-log');
-            el.innerText = msg;
-        }
+        function log(msg) { document.getElementById('sys-log').innerText = msg; }
         function toggleLog() {
             const el = document.getElementById('sys-log');
             el.style.display = (el.style.display === 'none') ? 'block' : 'none';
@@ -365,17 +294,35 @@
             appState.targetFogCol.setHex(palette.fog);
         }
         
+        // --- 修正1: HUDの視認性向上 ---
         function updateHUDColors(mode) {
             const palette = COLOR_PALETTES[mode];
             const isLight = palette.isLight;
-            document.getElementById('source-list').style.color = isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)';
-            document.body.style.color = isLight ? '#334' : '#eef';
+            
+            // 明るい背景の時は、透明度を上げ黒く強調
+            document.getElementById('source-list').style.color = isLight ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.4)';
+            document.getElementById('hud').style.color = isLight ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
+            
+            // 全体の文字色調整
+            document.body.style.color = isLight ? '#112' : '#eef';
             
             const startBtn = document.getElementById('start-btn');
             if (startBtn) {
-                startBtn.style.borderColor = isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)';
-                startBtn.style.color = isLight ? '#556' : '#e0e0e0';
+                startBtn.style.borderColor = isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.3)';
+                startBtn.style.color = isLight ? '#223' : '#e0e0e0';
             }
+
+            // ボタンの視認性
+            const ctrls = document.querySelectorAll('.btn');
+            ctrls.forEach(btn => {
+                if(isLight) {
+                    btn.style.color = '#333';
+                    btn.style.background = 'rgba(0,0,0,0.05)';
+                } else {
+                    btn.style.color = '#aaa';
+                    btn.style.background = 'rgba(255,255,255,0.05)';
+                }
+            });
         }
 
         function updateTime() {
@@ -411,7 +358,6 @@
             } catch(e){}
         }
 
-        // --- FILTERING LOGIC ---
         const segmenter = new Intl.Segmenter("ja-JP", { granularity: "word" });
 
         async function fetchFeeds() {
@@ -426,10 +372,7 @@
             let count = 0;
             results.forEach((data, idx) => {
                 if(data && data.items) {
-                    data.items.forEach(item => {
-                        processTitle(item.title, selectedFeeds[idx].name);
-                        count++;
-                    });
+                    data.items.forEach(item => { processTitle(item.title, selectedFeeds[idx].name); count++; });
                 }
             });
             if(count === 0) BACKUP.forEach(d => wordBuffer.push({text:d.t, source:d.s, type:d.y}));
@@ -447,18 +390,15 @@
                     if(!STOP_WORDS.includes(word)) {
                         const isKanji = /[\u4e00-\u9faf]/.test(word);
                         const isKatakana = /^[\u30a0-\u30ff]+$/.test(word);
-                        const isHiraganaOnly = /^[\u3040-\u309f]+$/.test(word);
                         if ( (isKanji) || (isKatakana && word.length > 1) ) {
-                            if(!isHiraganaOnly) addWord(word, source);
+                            if(!/^[\u3040-\u309f]+$/.test(word)) addWord(word, source);
                         }
                     }
                 }
             } else {
                 cleanTitle.split(/\s+/).forEach(w => {
                     const c = w.replace(/[^a-zA-Z0-9]/g,'');
-                    if(c.length > 2 && !STOP_WORDS.includes(c.toUpperCase())) {
-                        if(!/^\d+$/.test(c)) addWord(c, source);
-                    }
+                    if(c.length > 2 && !STOP_WORDS.includes(c.toUpperCase()) && !/^\d+$/.test(c)) addWord(c, source);
                 });
             }
         }
@@ -515,16 +455,32 @@
 
         const activeSprites = [];
 
+        // --- 修正2: 3Dテキストの視認性向上 ---
         function getGenreColor(type) {
             const isLight = (appState.mode === 'day' || appState.mode === 'morning');
-            switch(type) {
-                case TYPE_CRISIS: return { hex:"#ff8888", r:1, g:0.5, b:0.5 }; 
-                case TYPE_HOPE:   return { hex:"#ffddaa", r:1, g:0.85, b:0.6 }; 
-                case TYPE_TECH:   return { hex:"#aaddff", r:0.6, g:0.85, b:1 }; 
-                case TYPE_NATURE: return { hex:"#99ffaa", r:0.6, g:1, b:0.65 }; 
-                case TYPE_ART:    return { hex:"#ddbbff", r:0.85, g:0.7, b:1 }; 
-                case TYPE_MONEY:  return { hex:"#88aaff", r:0.5, g:0.6, b:1 };  
-                default:          return isLight ? { hex:"#667788", r:0.4, g:0.5, b:0.6 } : { hex:"#99aabb", r:0.6, g:0.7, b:0.75 };
+            
+            if (isLight) {
+                // 明るい背景時は濃い色を使用
+                switch(type) {
+                    case TYPE_CRISIS: return { hex:"#b71c1c", r:0.7, g:0.1, b:0.1 }; // 濃い赤
+                    case TYPE_HOPE:   return { hex:"#e65100", r:0.9, g:0.3, b:0 };   // 濃いオレンジ
+                    case TYPE_TECH:   return { hex:"#01579b", r:0, g:0.35, b:0.6 };  // 濃い青
+                    case TYPE_NATURE: return { hex:"#1b5e20", r:0.1, g:0.37, b:0.12 }; // 濃い緑
+                    case TYPE_ART:    return { hex:"#4a148c", r:0.29, g:0.08, b:0.55 }; // 濃い紫
+                    case TYPE_MONEY:  return { hex:"#0d47a1", r:0.05, g:0.28, b:0.63 }; // 濃いインディゴ
+                    default:          return { hex:"#37474f", r:0.2, g:0.28, b:0.31 };  // ダークグレー
+                }
+            } else {
+                // 暗い背景時は明るいパステル色
+                switch(type) {
+                    case TYPE_CRISIS: return { hex:"#ff8888", r:1, g:0.5, b:0.5 }; 
+                    case TYPE_HOPE:   return { hex:"#ffddaa", r:1, g:0.85, b:0.6 }; 
+                    case TYPE_TECH:   return { hex:"#aaddff", r:0.6, g:0.85, b:1 }; 
+                    case TYPE_NATURE: return { hex:"#99ffaa", r:0.6, g:1, b:0.65 }; 
+                    case TYPE_ART:    return { hex:"#ddbbff", r:0.85, g:0.7, b:1 }; 
+                    case TYPE_MONEY:  return { hex:"#88aaff", r:0.5, g:0.6, b:1 };  
+                    default:          return { hex:"#99aabb", r:0.6, g:0.7, b:0.75 };
+                }
             }
         }
 
@@ -545,14 +501,16 @@
             const col = getGenreColor(type);
             const isLightBg = (appState.mode === 'day' || appState.mode === 'morning');
             
-            ctx.shadowColor = isLightBg ? "rgba(0,0,0,0.05)" : col.hex; 
-            ctx.shadowBlur = isLightBg ? 5 : 30; 
+            // 明るい背景の時はグロー（影）を消してクッキリさせる
+            ctx.shadowColor = isLightBg ? "rgba(0,0,0,0)" : col.hex; 
+            ctx.shadowBlur = isLightBg ? 0 : 30; 
             ctx.fillStyle = col.hex;
             ctx.font = `500 ${wSize}px "Shippori Mincho", serif`;
             ctx.fillText(text, width/2, 20);
             
             ctx.shadowBlur = 0; 
-            ctx.fillStyle = isLightBg ? "#888888" : "#999999";
+            // サブタイトルの色
+            ctx.fillStyle = isLightBg ? "#555555" : "#999999";
             ctx.font = `400 ${sSize}px "Roboto Mono", monospace`;
             ctx.fillText(source, width/2, wSize + 35);
 
@@ -568,6 +526,12 @@
 
             const { tex, ratio, col } = createTexture(data.text, data.source, data.type);
             const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffffff });
+            
+            // 明るい背景の時はAdditiveBlending（加算合成）だと白飛びするのでNormalにする
+            if (appState.mode === 'day' || appState.mode === 'morning') {
+                mat.blending = THREE.NormalBlending;
+            }
+
             const sprite = new THREE.Sprite(mat);
             
             const range = 2200;
