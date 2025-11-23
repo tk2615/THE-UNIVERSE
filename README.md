@@ -160,7 +160,6 @@
         const TYPE_NEUTRAL=0, TYPE_HOPE=1, TYPE_CRISIS=2, TYPE_TECH=3, TYPE_NATURE=4, TYPE_ART=5, TYPE_MONEY=6;
         
         const CLASSIFIER = {
-            // Updated with User Feedback: Added 殺, 災, 害, 傷, 火災 and related terms
             crisis: [
                 "WAR","CRISIS","DEATH","KILL","ATTACK","DANGER","WARNING","VICTIM","BOMB","BLAST","CRASH","DISASTER",
                 "戦争","危機","災害","殺害","事故","警報","死亡","脅威","爆発","炎上","地震","津波","被害","倒産","容疑","逮捕","衝突","ミサイル","闇","不倫","死去",
@@ -180,7 +179,7 @@
                 [TYPE_TECH]: "#01579b",
                 [TYPE_NATURE]: "#1b5e20", 
                 [TYPE_ART]: "#4a148c", 
-                [TYPE_MONEY]: "#f9a825", // 昼: 視認性の良いゴールド
+                [TYPE_MONEY]: "#f9a825", 
                 [TYPE_NEUTRAL]: "#37474f"
             },
             dark: { 
@@ -189,7 +188,7 @@
                 [TYPE_TECH]: "#aaddff",
                 [TYPE_NATURE]: "#99ffaa", 
                 [TYPE_ART]: "#ddbbff", 
-                [TYPE_MONEY]: "#ffea00", // 夜: 発光するイエロー
+                [TYPE_MONEY]: "#ffea00", 
                 [TYPE_NEUTRAL]: "#99aabb"
             }
         };
@@ -335,7 +334,7 @@
         };
 
         let lastPaletteMinute = -1; 
-        function log(msg) {} // Stub
+        function log(msg) {} 
 
         function setInitialCurrentBgCols(mode) {
             const palette = COLOR_PALETTES[mode];
@@ -348,6 +347,14 @@
             appState.targetFogCol.setHex(palette.fog);
         }
         
+        // Material for lines - defined globally so we can update it
+        const lineMat = new THREE.LineBasicMaterial({ 
+            vertexColors: true, 
+            transparent: true, 
+            opacity: 0.15, 
+            blending: THREE.AdditiveBlending 
+        });
+
         function updateHUDColors(mode) {
             const palette = COLOR_PALETTES[mode];
             const isLight = palette.isLight;
@@ -358,7 +365,7 @@
             document.getElementById('legend').style.color = isLight ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)';
             document.body.style.color = isLight ? '#112' : '#eef';
             
-            // Connect Button (Enhanced Visibility)
+            // Connect Button
             const startBtn = document.getElementById('start-btn');
             if (startBtn) {
                 if(isLight) {
@@ -380,6 +387,13 @@
             document.getElementById('dot-nature').style.backgroundColor = colors[TYPE_NATURE];
             document.getElementById('dot-art').style.backgroundColor = colors[TYPE_ART];
             document.getElementById('dot-money').style.backgroundColor = colors[TYPE_MONEY];
+
+            // --- FIX: Update Line Material based on brightness ---
+            if(lineMat) {
+                lineMat.blending = isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
+                lineMat.opacity = isLight ? 0.35 : 0.15; // Increased opacity for light mode
+                lineMat.needsUpdate = true;
+            }
         }
 
         function updateTime() {
@@ -522,7 +536,7 @@
         const lineCols = new Float32Array(MAX_LINES * 6);
         lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
         lineGeo.setAttribute('color', new THREE.BufferAttribute(lineCols, 3));
-        const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending }); 
+        // lineMat is defined globally above
         const lines = new THREE.LineSegments(lineGeo, lineMat);
         lineGroup.add(lines);
 
