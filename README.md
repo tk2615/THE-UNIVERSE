@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Omni-Source: THE UNIVERSE (Audio & Visual Sync)</title>
+    <title>Omni-Source: RHYTHMIC AMBIENT</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -71,7 +71,7 @@
 
     <div id="overlay">
         <div class="title">THE UNIVERSE</div>
-        <div class="subtitle">Global Real-time Stream</div>
+        <div class="subtitle">Rhythmic Ambient Stream</div>
         <button id="start-btn">CONNECT</button>
     </div>
 
@@ -97,8 +97,8 @@
     <script>
         // --- CONFIGURATION ---
         const CONFIG = {
-            spawnRate: 180,      
-            wordLife: 65000,     
+            spawnRate: 200,      // 少し間隔を広げてリズムを聞かせる
+            wordLife: 60000,     
             baseSize: 60,        
             minSize: 35,         
             connectDist: 600,    
@@ -156,140 +156,174 @@
         };
         let isAudioReady = false;
 
-        // --- SCALES & AUDIO CONFIG ---
+        // --- RHYTHM & SCALES ---
+        // ペンタトニック系を中心に、心地よく響くスケール構成
         const SCALES = {
-            night:   ["C3", "Eb3", "G3", "Bb3", "C4", "Eb4", "G4"], // マイナー
-            early:   ["D3", "A3", "D4", "E4", "F#4", "A4", "B4"],   // 透明感
-            morning: ["E4", "G#4", "B4", "C#5", "E5", "G#5", "B5"], // メジャー（高）
-            day:     ["C4", "D4", "E4", "G4", "A4", "C5", "D5"],    // メジャー（中）
-            evening: ["Db3", "F3", "Ab3", "C4", "Db4", "Eb4", "F4"]  // メロウ
+            night:   ["C3", "G3", "Bb3", "C4", "Eb4", "G4", "Bb4"], 
+            early:   ["D3", "A3", "D4", "E4", "F#4", "A4"],   
+            morning: ["E3", "B3", "E4", "G#4", "B4", "C#5", "E5"], 
+            day:     ["C3", "G3", "C4", "D4", "E4", "G4", "A4"],    
+            evening: ["Db3", "Ab3", "Db4", "Eb4", "F4", "Ab4"]  
         };
-        const BASS_NOTES = ["C2", "G2", "F2", "A1", "E2"];
+        
+        // ベースとなるリズムループ用の音
+        const PULSE_NOTES = {
+            night:   ["C2", "C3"],
+            early:   ["D2", "A2"],
+            morning: ["E2", "B2"],
+            day:     ["C2", "G2"],
+            evening: ["Db2", "Ab2"]
+        };
 
         const Audio = {
-            drone: null, harp: null, chime: null, water: null, ground: null, bird: null, wood: null, choir: null, 
-            reverb: null, autoFilter: null,
+            // Instruments
+            drone: null, pulseSynth: null, mainSynth: null, bassSynth: null, 
+            reverb: null, delay: null, 
+            
             currentScale: SCALES.night,
+            currentPulse: PULSE_NOTES.night,
 
             async init() {
                 await Tone.start();
                 Tone.Context.lookAhead = 0.1;
+                
+                // BPM設定（ゆったりとした心拍数程度）
+                Tone.Transport.bpm.value = 66; 
 
-                this.reverb = new Tone.Reverb({decay: 10, wet: 0.5}).toDestination();
-                this.reverb.generate(); 
-                const masterComp = new Tone.Compressor(-30, 3).connect(this.reverb);
+                // Master FX (深いリバーブとディレイでアンビエント感を出す)
+                this.reverb = new Tone.Reverb({decay: 8, wet: 0.5}).toDestination();
+                await this.reverb.generate();
+                
+                // PingPongDelayで広がりを
+                this.delay = new Tone.PingPongDelay("8n.", 0.3).connect(this.reverb);
+                const masterComp = new Tone.Compressor(-20, 3).connect(this.delay);
 
-                const filterLFO = new Tone.LFO(0.05, 200, 1000).start(); 
-                this.autoFilter = new Tone.Filter(400, "lowpass").connect(masterComp);
-                filterLFO.connect(this.autoFilter.frequency);
+                // 1. DRONE (背景の持続音) - フィルターが開閉して呼吸する
+                const autoFilter = new Tone.AutoFilter({ frequency: 0.1, baseFrequency: 200, octaves: 2.6 }).connect(masterComp).start();
+                this.drone = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "fatsine", count: 3, spread: 30 },
+                    envelope: { attack: 2, decay: 1, sustain: 1, release: 5 }
+                }).connect(autoFilter);
+                this.drone.volume.value = -20;
 
-                this.drone = new Tone.PolySynth(Tone.FMSynth, {
-                    harmonicity: 0.5, modulationIndex: 1, oscillator: { type: "sine" }, modulation: { type: "triangle" },
-                    envelope: { attack: 4, decay: 4, sustain: 1, release: 8 },
-                }).connect(this.autoFilter);
-                this.drone.volume.value = -22; 
-                this.startDroneLoop();
+                // 2. PULSE (リズム隊) - 柔らかいプラック音
+                // コトコトという心地よいリズム
+                this.pulseSynth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "triangle" },
+                    envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 }
+                }).connect(this.delay);
+                this.pulseSynth.volume.value = -18;
 
-                this.harp = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.01, decay: 0.4, sustain: 0, release: 1 } }).connect(masterComp);
-                this.harp.volume.value = -14;
+                // 3. MAIN SYNTH (単語出現時の音) - ベルっぽい透明感
+                this.mainSynth = new Tone.PolySynth(Tone.FMSynth, {
+                    harmonicity: 2, modulationIndex: 2,
+                    oscillator: { type: "sine" },
+                    envelope: { attack: 0.01, decay: 0.5, sustain: 0, release: 2 },
+                    modulation: { type: "sine" },
+                    modulationEnvelope: { attack: 0.5, decay: 0, sustain: 1, release: 0.5 }
+                }).connect(this.delay);
+                this.mainSynth.volume.value = -12;
 
-                const panner = new Tone.Panner3D().connect(masterComp);
-                this.chime = new Tone.PolySynth(Tone.FMSynth, {
-                    harmonicity: 3, modulationIndex: 10, oscillator: { type: "sine" },
-                    envelope: { attack: 0.01, decay: 2, sustain: 0, release: 2 },
-                    modulation: { type: "square" }, modulationEnvelope: { attack: 0.01, decay: 0.5, sustain: 0, release: 0.5 }
-                }).connect(panner);
-                this.chime.volume.value = -16;
+                // 4. BASS (低音の支え)
+                this.bassSynth = new Tone.MonoSynth({
+                    oscillator: { type: "square" },
+                    filter: { Q: 2, type: "lowpass", rollover: -12 },
+                    envelope: { attack: 0.1, decay: 0.3, sustain: 0.5, release: 2 },
+                    filterEnvelope: { attack: 0.001, decay: 0.1, sustain: 0.5, release: 1, baseFrequency: 100, octaves: 2 }
+                }).connect(masterComp);
+                this.bassSynth.volume.value = -14;
 
-                this.water = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" }, envelope: { attack: 0.005, decay: 0.3, sustain: 0, release: 0.1 } }).connect(new Tone.PingPongDelay("8n", 0.3).connect(masterComp));
-                this.water.volume.value = -14;
-
-                this.ground = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 2, oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.8, sustain: 0.01, release: 1.4 } }).connect(masterComp);
-                this.ground.volume.value = -10;
-
-                this.choir = new Tone.PolySynth(Tone.AMSynth, { harmonicity: 1.5, oscillator: { type: "sine" }, envelope: { attack: 0.5, decay: 1, sustain: 0.5, release: 3 }, modulation: { type: "sine" } }).connect(masterComp);
-                this.choir.volume.value = -14;
-
-                this.bird = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "triangle" }, envelope: { attack: 0.02, decay: 0.2, sustain: 0.1, release: 1 }, }).connect(new Tone.FeedbackDelay("8n", 0.4).connect(masterComp));
-                this.bird.volume.value = -18;
-
-                this.wood = new Tone.PolySynth(Tone.MembraneSynth, { pitchDecay: 0.01, octaves: 4, oscillator: { type: "sine" }, envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 } }).connect(masterComp);
-                this.wood.volume.value = -16;
-
+                this.startLoops();
                 isAudioReady = true;
+                Tone.Transport.start();
+            },
+
+            startLoops() {
+                // 背景リズム：8分音符で淡々と刻む（ミニマルミュージック的）
+                let step = 0;
+                Tone.Transport.scheduleRepeat((time) => {
+                    const notes = this.currentPulse;
+                    // 4拍に1回ルート音、裏拍で5度などを混ぜる
+                    if (step % 4 === 0) {
+                        this.pulseSynth.triggerAttackRelease(notes[0], "16n", time);
+                    } else if (step % 2 !== 0 && Math.random() > 0.4) {
+                        // ランダムな裏打ち
+                        this.pulseSynth.triggerAttackRelease(notes[1] || notes[0], "16n", time, 0.5);
+                    }
+                    step++;
+                }, "8n");
+
+                // ドローン：小節の頭でコードが変わるイメージ
+                Tone.Transport.scheduleRepeat((time) => {
+                    if (Math.random() > 0.3) {
+                        const root = this.currentPulse[0];
+                        // ルート + 5度
+                        this.drone.triggerAttackRelease([root, Tone.Frequency(root).transpose(7)], "4m", time);
+                    }
+                }, "4m"); // 4小節ごと
             },
 
             setMode(mode) {
                 if(!isAudioReady) return;
                 this.currentScale = SCALES[mode] || SCALES.night;
+                this.currentPulse = PULSE_NOTES[mode] || PULSE_NOTES.night;
+
                 switch(mode) {
                     case 'night':
-                        this.reverb.decay = 10; this.reverb.wet.value = 0.6; this.autoFilter.frequency.value = 200; break;
-                    case 'early':
-                        this.reverb.decay = 6; this.reverb.wet.value = 0.4; this.autoFilter.frequency.value = 400; break;
+                        Tone.Transport.bpm.rampTo(60, 10);
+                        this.reverb.wet.rampTo(0.6, 10);
+                        break;
                     case 'morning':
-                        this.reverb.decay = 3; this.reverb.wet.value = 0.2; this.autoFilter.frequency.value = 800; break;
+                        Tone.Transport.bpm.rampTo(72, 10);
+                        this.reverb.wet.rampTo(0.3, 10);
+                        break;
                     case 'day':
-                        this.reverb.decay = 1.5; this.reverb.wet.value = 0.1; this.autoFilter.frequency.value = 600; break;
-                    case 'evening':
-                        this.reverb.decay = 5; this.reverb.wet.value = 0.4; this.autoFilter.frequency.value = 300; break;
+                        Tone.Transport.bpm.rampTo(76, 10);
+                        this.reverb.wet.rampTo(0.2, 10);
+                        break;
+                    default:
+                        Tone.Transport.bpm.rampTo(66, 10);
+                        this.reverb.wet.rampTo(0.5, 10);
+                        break;
                 }
             },
 
-            startDroneLoop() {
-                new Tone.Loop(time => {
-                    const note = BASS_NOTES[Math.floor(Math.random() * BASS_NOTES.length)];
-                    this.drone.triggerAttackRelease(note, 16, time);
-                    if(Math.random() > 0.6) {
-                         const harmony = Tone.Frequency(note).transpose(7); 
-                         this.drone.triggerAttackRelease(harmony, 12, time + 2);
-                    }
-                }, 15).start(0);
-                Tone.Transport.start();
-            },
-
+            // 重要な変更：音を即座に鳴らさず、次の「16分音符」のタイミングに予約する（Quantize）
             triggerEvent(type) {
                 if(!isAudioReady) return;
-                const now = Tone.now();
-                const t = now + Math.random() * 0.1;
-                
-                const scale = this.currentScale;
-                const noteIdx = Math.floor(Math.random() * scale.length);
-                const note = scale[noteIdx];
 
+                // ランダムにノートを選ぶ
+                const scale = this.currentScale;
+                const note = scale[Math.floor(Math.random() * scale.length)];
+                
+                // 次の16分音符のグリッド
+                const nextSubdivision = Tone.Transport.nextSubdivision("16n");
+
+                // 音色のバリエーション
                 switch(type) {
-                    case TYPE_MONEY: 
-                        this.chime.set({ harmonicity: 1 + Math.random() * 5 });
-                        if(Math.random() > 0.7) { this.chime.triggerAttackRelease(note, "32n", t); this.chime.triggerAttackRelease(note, "32n", t + 0.05); }
-                        else { this.chime.triggerAttackRelease(Tone.Frequency(note).transpose(12), "2n", t); }
+                    case TYPE_CRISIS:
+                        // 低音で重く
+                        this.bassSynth.triggerAttackRelease(Tone.Frequency(note).transpose(-12), "8n", nextSubdivision);
                         break;
-                    case TYPE_TECH: 
-                        this.water.set({ envelope: { decay: 0.1 + Math.random() * 0.4 } });
-                        if(Math.random() > 0.8) { this.water.triggerAttackRelease(note, "64n", t); this.water.triggerAttackRelease(Tone.Frequency(note).transpose(12), "64n", t + 0.05); }
-                        else { this.water.triggerAttackRelease(note, "16n", t); }
+                    case TYPE_TECH:
+                        // 短く高い音（アルペジオ的）
+                        this.mainSynth.triggerAttackRelease(Tone.Frequency(note).transpose(12), "32n", nextSubdivision);
+                        this.mainSynth.triggerAttackRelease(Tone.Frequency(note).transpose(19), "32n", nextSubdivision + Tone.Time("32n"));
                         break;
-                    case TYPE_CRISIS: 
-                        if(Math.random() > 0.5) this.ground.triggerAttackRelease("C1", "1n", t); 
-                        else this.ground.triggerAttackRelease("C2", "4n", t); 
+                    case TYPE_MONEY:
+                         // 金属的
+                        this.mainSynth.set({ harmonicity: 3 });
+                        this.mainSynth.triggerAttackRelease(note, "16n", nextSubdivision);
+                        setTimeout(() => this.mainSynth.set({ harmonicity: 2 }), 200);
                         break;
-                    case TYPE_HOPE: case TYPE_ART: 
-                        this.choir.set({ harmonicity: 1 + Math.random() });
-                        if(Math.random() > 0.6) { 
-                            const n1 = scale[noteIdx % scale.length];
-                            const n2 = scale[(noteIdx+2) % scale.length];
-                            const n3 = scale[(noteIdx+4) % scale.length];
-                            this.choir.triggerAttackRelease([n1,n2,n3], "1n", t); 
+                    default:
+                        // 通常：和音っぽく鳴らすことも
+                        if(Math.random() > 0.7) {
+                            const n2 = scale[(scale.indexOf(note) + 2) % scale.length];
+                            this.mainSynth.triggerAttackRelease([note, n2], "8n", nextSubdivision);
+                        } else {
+                            this.mainSynth.triggerAttackRelease(note, "8n", nextSubdivision);
                         }
-                        else this.choir.triggerAttackRelease(note, "2n", t);
-                        break;
-                    case TYPE_NATURE: 
-                        if(Math.random() > 0.5) this.bird.triggerAttackRelease(Tone.Frequency(note).transpose(24), "32n", t);
-                        else this.wood.triggerAttackRelease(note, "16n", t);
-                        break;
-                    default: 
-                        this.harp.set({ envelope: { release: 0.2 + Math.random() * 2 } });
-                        if(Math.random() > 0.8) { this.harp.triggerAttackRelease(note, "8n", t); this.harp.triggerAttackRelease(Tone.Frequency(note).transpose(4), "8n", t + 0.05); }
-                        else this.harp.triggerAttackRelease(note, "4n", t);
                         break;
                 }
             }
@@ -628,7 +662,6 @@
             setTargetPalette(appState.mode); 
             fetchEnv();
             await Audio.init();
-            // Start with the correct mode for audio
             Audio.setMode(appState.mode);
             await fetchFeeds();
             spawnLoop();
