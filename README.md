@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Omni-Source: VISUALIZER</title>
+    <title>Omni-Source: VISUALIZER (Smart Loc)</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -104,7 +104,7 @@
 
     <div id="hud">
         <div>TIME <span id="clock-display" class="hud-val">--:--</span></div>
-        <div>LOC <span id="loc-display" class="hud-val">Scanning...</span></div>
+        <div>LOC <span id="loc-display" class="hud-val">Waiting for GPS...</span></div>
         <div>ENV <span id="env-display" class="hud-val">--</span></div>
     </div>
 
@@ -347,7 +347,6 @@
             appState.targetFogCol.setHex(palette.fog);
         }
         
-        // Material for lines - defined globally so we can update it
         const lineMat = new THREE.LineBasicMaterial({ 
             vertexColors: true, 
             transparent: true, 
@@ -359,13 +358,11 @@
             const palette = COLOR_PALETTES[mode];
             const isLight = palette.isLight;
             
-            // HUD Text
             document.getElementById('source-list').style.color = isLight ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.4)';
             document.getElementById('hud').style.color = isLight ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
             document.getElementById('legend').style.color = isLight ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)';
             document.body.style.color = isLight ? '#112' : '#eef';
             
-            // Connect Button
             const startBtn = document.getElementById('start-btn');
             if (startBtn) {
                 if(isLight) {
@@ -379,7 +376,6 @@
                 }
             }
             
-            // Legend Dots
             const colors = isLight ? GENRE_COLORS.light : GENRE_COLORS.dark;
             document.getElementById('dot-crisis').style.backgroundColor = colors[TYPE_CRISIS];
             document.getElementById('dot-hope').style.backgroundColor = colors[TYPE_HOPE];
@@ -388,10 +384,9 @@
             document.getElementById('dot-art').style.backgroundColor = colors[TYPE_ART];
             document.getElementById('dot-money').style.backgroundColor = colors[TYPE_MONEY];
 
-            // --- FIX: Update Line Material based on brightness ---
             if(lineMat) {
                 lineMat.blending = isLight ? THREE.NormalBlending : THREE.AdditiveBlending;
-                lineMat.opacity = isLight ? 0.35 : 0.15; // Increased opacity for light mode
+                lineMat.opacity = isLight ? 0.35 : 0.15; 
                 lineMat.needsUpdate = true;
             }
         }
@@ -428,17 +423,64 @@
             return "STORM";
         }
 
+        // --- MODIFIED LOCATION FETCHER (No Duplicates) ---
         async function fetchEnv() {
-            try {
-                const ip = await fetch('https://ipapi.co/json/').then(r=>r.json());
-                document.getElementById('loc-display').innerText = `${ip.city||'Earth'}`;
-                if(ip.latitude){
-                    const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${ip.latitude}&longitude=${ip.longitude}&current_weather=true`).then(r=>r.json());
+            const updateDisplay = async (lat, lon) => {
+                try {
+                    const geoRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+                    const geo = await geoRes.json();
+                    
+                    const city = geo.city || geo.locality || "";
+                    const region = geo.principalSubdivision || "";
+                    const country = geo.countryName || "";
+                    
+                    // Deduplication logic:
+                    // 1. Put parts in array.
+                    // 2. Filter out duplicate names (case-insensitive check)
+                    // e.g., "Tokyo, Tokyo" -> "Tokyo"
+                    let parts = [city, region, country].filter(Boolean);
+                    
+                    // Filter duplicates
+                    parts = parts.filter((item, index) => {
+                        const lower = item.toLowerCase();
+                        // Only keep if it's the first time this string appears (case insensitive)
+                        return parts.findIndex(p => p.toLowerCase() === lower) === index;
+                    });
+
+                    const locText = parts.join(', ');
+                    document.getElementById('loc-display').innerText = locText || 'Unknown Location';
+
+                    // Weather
+                    const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`).then(r=>r.json());
                     const temp = w.current_weather.temperature;
                     const code = w.current_weather.weathercode;
                     document.getElementById('env-display').innerText = `${temp}°C / ${getWeatherDesc(code)}`;
+
+                } catch(e) {
+                    console.error("Geo/Weather Error", e);
+                    document.getElementById('loc-display').innerText = "Loc Signal Lost...";
                 }
-            } catch(e){}
+            };
+
+            if (navigator.geolocation) {
+                document.getElementById('loc-display').innerText = "Triangulating...";
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => updateDisplay(pos.coords.latitude, pos.coords.longitude),
+                    async () => {
+                        try {
+                            const ip = await fetch('https://ipapi.co/json/').then(r=>r.json());
+                            updateDisplay(ip.latitude, ip.longitude);
+                        } catch(e) {
+                            document.getElementById('loc-display').innerText = "Earth (Offline)";
+                        }
+                    }
+                );
+            } else {
+                try {
+                    const ip = await fetch('https://ipapi.co/json/').then(r=>r.json());
+                    updateDisplay(ip.latitude, ip.longitude);
+                } catch(e) {}
+            }
         }
 
         const segmenter = new Intl.Segmenter("ja-JP", { granularity: "word" });
@@ -536,7 +578,7 @@
         const lineCols = new Float32Array(MAX_LINES * 6);
         lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
         lineGeo.setAttribute('color', new THREE.BufferAttribute(lineCols, 3));
-        // lineMat is defined globally above
+        
         const lines = new THREE.LineSegments(lineGeo, lineMat);
         lineGroup.add(lines);
 
@@ -682,7 +724,7 @@
             updateTime(); 
             setInitialCurrentBgCols(appState.mode); 
             setTargetPalette(appState.mode); 
-            fetchEnv();
+            fetchEnv(); 
             await Audio.init();
             Audio.setMode(appState.mode);
             await fetchFeeds();
