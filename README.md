@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Omni-Source: RHYTHMIC AMBIENT</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Omni-Source: VISUALIZER</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,6 +18,7 @@
             background-size: 400% 400%;
             animation: gradient-shift 120s ease infinite;
             transition: color 3s ease;
+            touch-action: manipulation;
         }
         @keyframes gradient-shift {
             0% { background-position: 0% 50%; }
@@ -26,6 +27,7 @@
         }
         #canvas-container { width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; z-index: 1; }
         
+        /* --- UI LAYOUT --- */
         #hud {
             position: absolute; top: 30px; left: 30px; z-index: 20;
             font-family: 'Roboto Mono', monospace; font-size: 10px;
@@ -40,31 +42,56 @@
             font-family: 'Roboto Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.4);
             text-align: right; pointer-events: none; line-height: 1.6; letter-spacing: 1px;
             transition: color 2s ease;
+            max-width: 50vw;
         }
 
+        /* --- LEGEND (凡例) --- */
+        #legend {
+            position: absolute; top: 30px; right: 30px; z-index: 20;
+            font-family: 'Roboto Mono', monospace; font-size: 9px; 
+            text-align: right; pointer-events: none; line-height: 1.8; letter-spacing: 1px;
+            transition: color 2s ease;
+            color: rgba(255,255,255,0.6);
+        }
+        .legend-item { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; transition: background-color 1s; }
+
+        /* --- OVERLAY & BUTTON --- */
         #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #000510; z-index: 100; display: flex; flex-direction: column;
             align-items: center; justify-content: center; transition: opacity 3s ease;
+            padding: 20px; box-sizing: border-box;
         }
-        .title { font-size: 5vw; font-weight: 500; letter-spacing: 0.3em; margin-bottom: 15px; color: #e0f0ff; text-shadow: 0 0 20px rgba(200,230,255,0.3); }
-        .subtitle { font-size: 11px; color: #8899aa; margin-bottom: 50px; font-family: 'Roboto Mono'; letter-spacing: 4px; }
+        .title { font-size: 5vw; font-weight: 500; letter-spacing: 0.3em; margin-bottom: 15px; color: #e0f0ff; text-shadow: 0 0 20px rgba(200,230,255,0.3); text-align: center; }
+        .subtitle { font-size: 11px; color: #8899aa; margin-bottom: 50px; font-family: 'Roboto Mono'; letter-spacing: 4px; text-align: center; }
+        
         #start-btn {
-            background: transparent; border: 1px solid rgba(255,255,255,0.3); color: #e0e0e0;
+            background: rgba(255,255,255,0.1); 
+            border: 2px solid rgba(255,255,255,0.5); 
+            color: #ffffff;
             padding: 15px 50px; font-family: 'Shippori Mincho', serif; font-size: 14px; font-weight: 500;
-            letter-spacing: 4px; cursor: pointer; transition: 0.8s; border-radius: 50px;
+            letter-spacing: 4px; cursor: pointer; transition: 0.4s; border-radius: 50px;
+            min-width: 200px;
+            backdrop-filter: blur(5px);
+            text-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
-        #start-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.8); box-shadow: 0 0 30px rgba(255,255,255,0.2); transform: scale(1.05); color: white; }
-        
-        #sys-log {
-            position: absolute; bottom: 30px; left: 30px; z-index: 20;
-            font-family: 'Shippori Mincho', serif; font-size: 11px; color: #a0c0ff;
-            pointer-events: none; opacity: 0.6; width: 300px; transition: color 2s ease;
+        #start-btn:hover { 
+            background: rgba(255,255,255,0.25); 
+            border-color: #ffffff; 
+            box-shadow: 0 0 30px rgba(255,255,255,0.4); 
+            transform: scale(1.05); 
         }
         
-        #controls { position: absolute; top: 30px; right: 30px; z-index: 30; }
-        .btn { background: rgba(255,255,255,0.05); border: none; color: #aaa; padding: 8px 16px; cursor: pointer; border-radius: 20px; backdrop-filter: blur(5px); font-size: 10px; letter-spacing: 1px; transition: 0.3s; }
-        .btn:hover { color: white; background: rgba(255,255,255,0.1); }
+        /* --- RESPONSIVE STYLES --- */
+        @media (max-width: 768px) {
+            #hud { top: 20px; left: 20px; font-size: 9px; }
+            #source-list { bottom: 20px; right: 20px; font-size: 8px; max-width: 70vw; }
+            #legend { top: 20px; right: 20px; font-size: 8px; }
+            .title { font-size: 10vw; letter-spacing: 0.1em; }
+            .subtitle { font-size: 9px; margin-bottom: 30px; }
+            #start-btn { padding: 12px 30px; font-size: 12px; }
+        }
     </style>
 </head>
 <body>
@@ -81,13 +108,16 @@
         <div>ENV <span id="env-display" class="hud-val">--</span></div>
     </div>
 
-    <div id="sys-log">Initializing System...</div>
-    <div id="source-list">Waiting for connection...</div>
-
-    <div id="controls">
-        <button class="btn" onclick="toggleLog()">LOG ON/OFF</button>
+    <div id="legend">
+        <div class="legend-item">CRISIS <span class="dot" id="dot-crisis"></span></div>
+        <div class="legend-item">HOPE <span class="dot" id="dot-hope"></span></div>
+        <div class="legend-item">TECH <span class="dot" id="dot-tech"></span></div>
+        <div class="legend-item">NATURE <span class="dot" id="dot-nature"></span></div>
+        <div class="legend-item">ART <span class="dot" id="dot-art"></span></div>
+        <div class="legend-item">MONEY <span class="dot" id="dot-money"></span></div>
     </div>
 
+    <div id="source-list">Waiting for connection...</div>
     <div id="canvas-container"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -95,20 +125,21 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 
     <script>
-        // --- CONFIGURATION ---
+        // --- RESPONSIVE CONFIG ---
+        const isMobile = window.innerWidth < 768;
+        
         const CONFIG = {
-            spawnRate: 200,      // 少し間隔を広げてリズムを聞かせる
+            spawnRate: 200,      
             wordLife: 60000,     
-            baseSize: 60,        
-            minSize: 35,         
-            connectDist: 600,    
-            particleCount: 3000, 
+            baseSize: isMobile ? 45 : 60,
+            minSize: isMobile ? 25 : 35,         
+            connectDist: isMobile ? 450 : 600,   
+            particleCount: isMobile ? 1200 : 3000, 
             fogDensity: 0.0003   
         };
 
-        // --- MIXED SOURCES (JP & EN) ---
+        // --- SOURCES ---
         const ALL_FEEDS = [
-            // English Global
             { name: "BBC WORLD", url: "https://feeds.bbci.co.uk/news/world/rss.xml" },
             { name: "CNN TOP", url: "http://rss.cnn.com/rss/edition.rss" },
             { name: "REUTERS", url: "https://www.reutersagency.com/feed/?best-topics=political-general&post_type=best" },
@@ -116,8 +147,6 @@
             { name: "TECHCRUNCH", url: "https://techcrunch.com/feed/" },
             { name: "WIRED US", url: "https://www.wired.com/feed/rss" },
             { name: "ART NEWS", url: "https://www.artnews.com/feed/" },
-            
-            // Japanese
             { name: "NHK NEWS", url: "https://www3.nhk.or.jp/rss/news/cat0.xml" },
             { name: "YAHOO! TOP", url: "https://news.yahoo.co.jp/rss/topics/top-picks.xml" },
             { name: "ASAHI", url: "https://www.asahi.com/rss/asahi/newsheadlines.rdf" },
@@ -127,16 +156,42 @@
 
         const PROXY = "https://api.rss2json.com/v1/api.json?rss_url=";
 
-        // --- CLASSIFIERS ---
+        // --- CLASSIFIERS & COLORS ---
         const TYPE_NEUTRAL=0, TYPE_HOPE=1, TYPE_CRISIS=2, TYPE_TECH=3, TYPE_NATURE=4, TYPE_ART=5, TYPE_MONEY=6;
         
         const CLASSIFIER = {
-            crisis: ["WAR","CRISIS","DEATH","KILL","ATTACK","DANGER","WARNING","VICTIM","BOMB","BLAST","CRASH","DISASTER","戦争","危機","災害","殺害","事故","警報","死亡","脅威","爆発","炎上","地震","津波","被害","倒産","容疑","逮捕","衝突","ミサイル","闇","不倫","死去"],
+            // Updated with User Feedback: Added 殺, 災, 害, 傷, 火災 and related terms
+            crisis: [
+                "WAR","CRISIS","DEATH","KILL","ATTACK","DANGER","WARNING","VICTIM","BOMB","BLAST","CRASH","DISASTER",
+                "戦争","危機","災害","殺害","事故","警報","死亡","脅威","爆発","炎上","地震","津波","被害","倒産","容疑","逮捕","衝突","ミサイル","闇","不倫","死去",
+                "殺","災","害","傷","火災","事件","遺体","重傷","放火","罪" 
+            ],
             hope:  ["PEACE","WIN","HOPE","SUCCESS","JOY","BEST","HEAL","LOVE","SAVE","VICTORY","AWARD","PRIZE","PEACE","平和","希望","支援","回復","優勝","成功","愛","救助","勝利","祝福","金メダル","解決","誕生","新発見","ノーベル","結婚","推し","祝","最高","祈り"],
             tech:  ["AI","SPACE","DATA","FUTURE","CYBER","QUANTUM","ROBOT","APP","CODE","APPLE","GOOGLE","MICROSOFT","META","LAUNCH","ROCKET","宇宙","未来","技術","開発","人工知能","量子","ロケット","電脳","スマホ","アプリ","生成","半導体","コード","実験","科学"],
             nature: ["EARTH","CLIMATE","OCEAN","FOREST","ANIMAL","PLANET","STORM","HEAT","GREEN","WILD","NATURE","ENVIRONMENT","地球","環境","海","森","気候","動物","台風","猛暑","温暖化","自然","生物","発見","星","細胞","猫","犬","鳥","雪","雨","月","花"],
             art:   ["ART","SOUL","COLOR","MIND","DREAM","POEM","MUSIC","FILM","IDEA","DESIGN","STYLE","FASHION","CULTURE","MOVIE","芸術","魂","夢","思考","色","哲学","映画","音楽","言葉","感性","作品","展示","デザイン","建築","美","文学","文化","絵画"],
             money: ["MARKET","STOCK","MONEY","DOLLAR","PRICE","TRADE","ECONOMY","BITCOIN","FINANCE","BUSINESS","BANK","株","円","ドル","経済","市場","投資","価格","値上げ","金融","売上","利益","買収","上場","税","安","高"]
+        };
+
+        const GENRE_COLORS = {
+            light: { 
+                [TYPE_CRISIS]: "#b71c1c", 
+                [TYPE_HOPE]: "#e65100", 
+                [TYPE_TECH]: "#01579b",
+                [TYPE_NATURE]: "#1b5e20", 
+                [TYPE_ART]: "#4a148c", 
+                [TYPE_MONEY]: "#f9a825", // 昼: 視認性の良いゴールド
+                [TYPE_NEUTRAL]: "#37474f"
+            },
+            dark: { 
+                [TYPE_CRISIS]: "#ff8888", 
+                [TYPE_HOPE]: "#ffddaa", 
+                [TYPE_TECH]: "#aaddff",
+                [TYPE_NATURE]: "#99ffaa", 
+                [TYPE_ART]: "#ddbbff", 
+                [TYPE_MONEY]: "#ffea00", // 夜: 発光するイエロー
+                [TYPE_NEUTRAL]: "#99aabb"
+            }
         };
         
         const STOP_WORDS = [
@@ -156,8 +211,7 @@
         };
         let isAudioReady = false;
 
-        // --- RHYTHM & SCALES ---
-        // ペンタトニック系を中心に、心地よく響くスケール構成
+        // --- AUDIO CONFIG ---
         const SCALES = {
             night:   ["C3", "G3", "Bb3", "C4", "Eb4", "G4", "Bb4"], 
             early:   ["D3", "A3", "D4", "E4", "F#4", "A4"],   
@@ -165,40 +219,25 @@
             day:     ["C3", "G3", "C4", "D4", "E4", "G4", "A4"],    
             evening: ["Db3", "Ab3", "Db4", "Eb4", "F4", "Ab4"]  
         };
-        
-        // ベースとなるリズムループ用の音
         const PULSE_NOTES = {
-            night:   ["C2", "C3"],
-            early:   ["D2", "A2"],
-            morning: ["E2", "B2"],
-            day:     ["C2", "G2"],
-            evening: ["Db2", "Ab2"]
+            night:   ["C2", "C3"], early:   ["D2", "A2"], morning: ["E2", "B2"],
+            day:     ["C2", "G2"], evening: ["Db2", "Ab2"]
         };
 
         const Audio = {
-            // Instruments
-            drone: null, pulseSynth: null, mainSynth: null, bassSynth: null, 
-            reverb: null, delay: null, 
-            
-            currentScale: SCALES.night,
-            currentPulse: PULSE_NOTES.night,
+            drone: null, pulseSynth: null, mainSynth: null, bassSynth: null, reverb: null, delay: null, 
+            currentScale: SCALES.night, currentPulse: PULSE_NOTES.night,
 
             async init() {
                 await Tone.start();
                 Tone.Context.lookAhead = 0.1;
-                
-                // BPM設定（ゆったりとした心拍数程度）
                 Tone.Transport.bpm.value = 66; 
 
-                // Master FX (深いリバーブとディレイでアンビエント感を出す)
                 this.reverb = new Tone.Reverb({decay: 8, wet: 0.5}).toDestination();
                 await this.reverb.generate();
-                
-                // PingPongDelayで広がりを
                 this.delay = new Tone.PingPongDelay("8n.", 0.3).connect(this.reverb);
                 const masterComp = new Tone.Compressor(-20, 3).connect(this.delay);
 
-                // 1. DRONE (背景の持続音) - フィルターが開閉して呼吸する
                 const autoFilter = new Tone.AutoFilter({ frequency: 0.1, baseFrequency: 200, octaves: 2.6 }).connect(masterComp).start();
                 this.drone = new Tone.PolySynth(Tone.Synth, {
                     oscillator: { type: "fatsine", count: 3, spread: 30 },
@@ -206,28 +245,21 @@
                 }).connect(autoFilter);
                 this.drone.volume.value = -20;
 
-                // 2. PULSE (リズム隊) - 柔らかいプラック音
-                // コトコトという心地よいリズム
                 this.pulseSynth = new Tone.PolySynth(Tone.Synth, {
                     oscillator: { type: "triangle" },
                     envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 }
                 }).connect(this.delay);
                 this.pulseSynth.volume.value = -18;
 
-                // 3. MAIN SYNTH (単語出現時の音) - ベルっぽい透明感
                 this.mainSynth = new Tone.PolySynth(Tone.FMSynth, {
-                    harmonicity: 2, modulationIndex: 2,
-                    oscillator: { type: "sine" },
+                    harmonicity: 2, modulationIndex: 2, oscillator: { type: "sine" },
                     envelope: { attack: 0.01, decay: 0.5, sustain: 0, release: 2 },
-                    modulation: { type: "sine" },
-                    modulationEnvelope: { attack: 0.5, decay: 0, sustain: 1, release: 0.5 }
+                    modulation: { type: "sine" }, modulationEnvelope: { attack: 0.5, decay: 0, sustain: 1, release: 0.5 }
                 }).connect(this.delay);
                 this.mainSynth.volume.value = -12;
 
-                // 4. BASS (低音の支え)
                 this.bassSynth = new Tone.MonoSynth({
-                    oscillator: { type: "square" },
-                    filter: { Q: 2, type: "lowpass", rollover: -12 },
+                    oscillator: { type: "square" }, filter: { Q: 2, type: "lowpass", rollover: -12 },
                     envelope: { attack: 0.1, decay: 0.3, sustain: 0.5, release: 2 },
                     filterEnvelope: { attack: 0.001, decay: 0.1, sustain: 0.5, release: 1, baseFrequency: 100, octaves: 2 }
                 }).connect(masterComp);
@@ -239,97 +271,61 @@
             },
 
             startLoops() {
-                // 背景リズム：8分音符で淡々と刻む（ミニマルミュージック的）
                 let step = 0;
                 Tone.Transport.scheduleRepeat((time) => {
                     const notes = this.currentPulse;
-                    // 4拍に1回ルート音、裏拍で5度などを混ぜる
-                    if (step % 4 === 0) {
-                        this.pulseSynth.triggerAttackRelease(notes[0], "16n", time);
-                    } else if (step % 2 !== 0 && Math.random() > 0.4) {
-                        // ランダムな裏打ち
-                        this.pulseSynth.triggerAttackRelease(notes[1] || notes[0], "16n", time, 0.5);
-                    }
+                    if (step % 4 === 0) { this.pulseSynth.triggerAttackRelease(notes[0], "16n", time); } 
+                    else if (step % 2 !== 0 && Math.random() > 0.4) { this.pulseSynth.triggerAttackRelease(notes[1] || notes[0], "16n", time, 0.5); }
                     step++;
                 }, "8n");
-
-                // ドローン：小節の頭でコードが変わるイメージ
                 Tone.Transport.scheduleRepeat((time) => {
                     if (Math.random() > 0.3) {
                         const root = this.currentPulse[0];
-                        // ルート + 5度
                         this.drone.triggerAttackRelease([root, Tone.Frequency(root).transpose(7)], "4m", time);
                     }
-                }, "4m"); // 4小節ごと
+                }, "4m");
             },
 
             setMode(mode) {
                 if(!isAudioReady) return;
                 this.currentScale = SCALES[mode] || SCALES.night;
                 this.currentPulse = PULSE_NOTES[mode] || PULSE_NOTES.night;
-
                 switch(mode) {
-                    case 'night':
-                        Tone.Transport.bpm.rampTo(60, 10);
-                        this.reverb.wet.rampTo(0.6, 10);
-                        break;
-                    case 'morning':
-                        Tone.Transport.bpm.rampTo(72, 10);
-                        this.reverb.wet.rampTo(0.3, 10);
-                        break;
-                    case 'day':
-                        Tone.Transport.bpm.rampTo(76, 10);
-                        this.reverb.wet.rampTo(0.2, 10);
-                        break;
-                    default:
-                        Tone.Transport.bpm.rampTo(66, 10);
-                        this.reverb.wet.rampTo(0.5, 10);
-                        break;
+                    case 'night': Tone.Transport.bpm.rampTo(60, 10); this.reverb.wet.rampTo(0.6, 10); break;
+                    case 'morning': Tone.Transport.bpm.rampTo(72, 10); this.reverb.wet.rampTo(0.3, 10); break;
+                    case 'day': Tone.Transport.bpm.rampTo(76, 10); this.reverb.wet.rampTo(0.2, 10); break;
+                    default: Tone.Transport.bpm.rampTo(66, 10); this.reverb.wet.rampTo(0.5, 10); break;
                 }
             },
 
-            // 重要な変更：音を即座に鳴らさず、次の「16分音符」のタイミングに予約する（Quantize）
             triggerEvent(type) {
                 if(!isAudioReady) return;
-
-                // ランダムにノートを選ぶ
                 const scale = this.currentScale;
                 const note = scale[Math.floor(Math.random() * scale.length)];
-                
-                // 次の16分音符のグリッド
                 const nextSubdivision = Tone.Transport.nextSubdivision("16n");
 
-                // 音色のバリエーション
                 switch(type) {
-                    case TYPE_CRISIS:
-                        // 低音で重く
-                        this.bassSynth.triggerAttackRelease(Tone.Frequency(note).transpose(-12), "8n", nextSubdivision);
-                        break;
-                    case TYPE_TECH:
-                        // 短く高い音（アルペジオ的）
+                    case TYPE_CRISIS: this.bassSynth.triggerAttackRelease(Tone.Frequency(note).transpose(-12), "8n", nextSubdivision); break;
+                    case TYPE_TECH: 
                         this.mainSynth.triggerAttackRelease(Tone.Frequency(note).transpose(12), "32n", nextSubdivision);
                         this.mainSynth.triggerAttackRelease(Tone.Frequency(note).transpose(19), "32n", nextSubdivision + Tone.Time("32n"));
                         break;
                     case TYPE_MONEY:
-                         // 金属的
                         this.mainSynth.set({ harmonicity: 3 });
                         this.mainSynth.triggerAttackRelease(note, "16n", nextSubdivision);
                         setTimeout(() => this.mainSynth.set({ harmonicity: 2 }), 200);
                         break;
                     default:
-                        // 通常：和音っぽく鳴らすことも
                         if(Math.random() > 0.7) {
                             const n2 = scale[(scale.indexOf(note) + 2) % scale.length];
                             this.mainSynth.triggerAttackRelease([note, n2], "8n", nextSubdivision);
-                        } else {
-                            this.mainSynth.triggerAttackRelease(note, "8n", nextSubdivision);
-                        }
+                        } else { this.mainSynth.triggerAttackRelease(note, "8n", nextSubdivision); }
                         break;
                 }
             }
         };
 
-        // --- COLOR PALETTES ---
+        // --- COLORS & THEME ---
         const COLOR_PALETTES = {
             night: { hexes: ['#051020', '#102035', '#000510', '#152540'], fog: 0x051020, isLight: false },
             early: { hexes: ['#152030', '#2a3a50', '#101825', '#304055'], fog: 0x152030, isLight: false },
@@ -339,12 +335,7 @@
         };
 
         let lastPaletteMinute = -1; 
-
-        function log(msg) { document.getElementById('sys-log').innerText = msg; }
-        function toggleLog() {
-            const el = document.getElementById('sys-log');
-            el.style.display = (el.style.display === 'none') ? 'block' : 'none';
-        }
+        function log(msg) {} // Stub
 
         function setInitialCurrentBgCols(mode) {
             const palette = COLOR_PALETTES[mode];
@@ -360,19 +351,35 @@
         function updateHUDColors(mode) {
             const palette = COLOR_PALETTES[mode];
             const isLight = palette.isLight;
+            
+            // HUD Text
             document.getElementById('source-list').style.color = isLight ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.4)';
             document.getElementById('hud').style.color = isLight ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
+            document.getElementById('legend').style.color = isLight ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)';
             document.body.style.color = isLight ? '#112' : '#eef';
+            
+            // Connect Button (Enhanced Visibility)
             const startBtn = document.getElementById('start-btn');
             if (startBtn) {
-                startBtn.style.borderColor = isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.3)';
-                startBtn.style.color = isLight ? '#223' : '#e0e0e0';
+                if(isLight) {
+                    startBtn.style.background = 'rgba(0,0,0,0.1)';
+                    startBtn.style.borderColor = 'rgba(0,0,0,0.6)';
+                    startBtn.style.color = '#333';
+                } else {
+                    startBtn.style.background = 'rgba(255,255,255,0.1)';
+                    startBtn.style.borderColor = 'rgba(255,255,255,0.6)';
+                    startBtn.style.color = '#fff';
+                }
             }
-            const ctrls = document.querySelectorAll('.btn');
-            ctrls.forEach(btn => {
-                if(isLight) { btn.style.color = '#333'; btn.style.background = 'rgba(0,0,0,0.05)'; }
-                else { btn.style.color = '#aaa'; btn.style.background = 'rgba(255,255,255,0.05)'; }
-            });
+            
+            // Legend Dots
+            const colors = isLight ? GENRE_COLORS.light : GENRE_COLORS.dark;
+            document.getElementById('dot-crisis').style.backgroundColor = colors[TYPE_CRISIS];
+            document.getElementById('dot-hope').style.backgroundColor = colors[TYPE_HOPE];
+            document.getElementById('dot-tech').style.backgroundColor = colors[TYPE_TECH];
+            document.getElementById('dot-nature').style.backgroundColor = colors[TYPE_NATURE];
+            document.getElementById('dot-art').style.backgroundColor = colors[TYPE_ART];
+            document.getElementById('dot-money').style.backgroundColor = colors[TYPE_MONEY];
         }
 
         function updateTime() {
@@ -398,13 +405,24 @@
         }
         setInterval(updateTime, 1000);
 
+        function getWeatherDesc(code) {
+            if(code === 0) return "CLEAR";
+            if(code < 4) return "CLOUDY";
+            if(code < 50) return "FOG";
+            if(code < 70) return "RAIN";
+            if(code < 80) return "SNOW";
+            return "STORM";
+        }
+
         async function fetchEnv() {
             try {
                 const ip = await fetch('https://ipapi.co/json/').then(r=>r.json());
                 document.getElementById('loc-display').innerText = `${ip.city||'Earth'}`;
                 if(ip.latitude){
                     const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${ip.latitude}&longitude=${ip.longitude}&current_weather=true`).then(r=>r.json());
-                    document.getElementById('env-display').innerText = `${w.current_weather.temperature}°C`;
+                    const temp = w.current_weather.temperature;
+                    const code = w.current_weather.weathercode;
+                    document.getElementById('env-display').innerText = `${temp}°C / ${getWeatherDesc(code)}`;
                 }
             } catch(e){}
         }
@@ -415,7 +433,6 @@
             const shuffled = ALL_FEEDS.sort(() => 0.5 - Math.random());
             const selectedFeeds = shuffled.slice(0, 8);
             document.getElementById('source-list').innerHTML = "Connected to:<br>" + selectedFeeds.map(f => f.name).join("<br>");
-            log(`Scanning frequencies...`);
             const promises = selectedFeeds.map(f => fetch(PROXY + encodeURIComponent(f.url)).then(r=>r.ok?r.json():null).catch(e=>null));
             const results = await Promise.all(promises);
             let count = 0;
@@ -425,7 +442,6 @@
                 }
             });
             if(count === 0) BACKUP.forEach(d => wordBuffer.push({text:d.t, source:d.s, type:d.y}));
-            log(`Detected ${count} entities.`);
         }
 
         function processTitle(title, source) {
@@ -474,9 +490,18 @@
         scene.fog = new THREE.FogExp2(fogCol, CONFIG.fogDensity);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 1, 4000);
-        camera.position.z = 1200;
+        
+        function adjustCamera() {
+            const aspect = window.innerWidth / window.innerHeight;
+            camera.position.z = aspect < 1 ? 1800 : 1200;
+            camera.aspect = aspect;
+            camera.updateProjectionMatrix();
+        }
+        adjustCamera();
+
         const renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
         const wordGroup = new THREE.Group();
@@ -505,27 +530,10 @@
 
         function getGenreColor(type) {
             const isLight = (appState.mode === 'day' || appState.mode === 'morning');
-            if (isLight) {
-                switch(type) {
-                    case TYPE_CRISIS: return { hex:"#b71c1c", r:0.7, g:0.1, b:0.1 };
-                    case TYPE_HOPE:   return { hex:"#e65100", r:0.9, g:0.3, b:0 };
-                    case TYPE_TECH:   return { hex:"#01579b", r:0, g:0.35, b:0.6 };
-                    case TYPE_NATURE: return { hex:"#1b5e20", r:0.1, g:0.37, b:0.12 };
-                    case TYPE_ART:    return { hex:"#4a148c", r:0.29, g:0.08, b:0.55 };
-                    case TYPE_MONEY:  return { hex:"#0d47a1", r:0.05, g:0.28, b:0.63 };
-                    default:          return { hex:"#37474f", r:0.2, g:0.28, b:0.31 };
-                }
-            } else {
-                switch(type) {
-                    case TYPE_CRISIS: return { hex:"#ff8888", r:1, g:0.5, b:0.5 }; 
-                    case TYPE_HOPE:   return { hex:"#ffddaa", r:1, g:0.85, b:0.6 }; 
-                    case TYPE_TECH:   return { hex:"#aaddff", r:0.6, g:0.85, b:1 }; 
-                    case TYPE_NATURE: return { hex:"#99ffaa", r:0.6, g:1, b:0.65 }; 
-                    case TYPE_ART:    return { hex:"#ddbbff", r:0.85, g:0.7, b:1 }; 
-                    case TYPE_MONEY:  return { hex:"#88aaff", r:0.5, g:0.6, b:1 };  
-                    default:          return { hex:"#99aabb", r:0.6, g:0.7, b:0.75 };
-                }
-            }
+            const palette = isLight ? GENRE_COLORS.light : GENRE_COLORS.dark;
+            const hex = palette[type] || palette[TYPE_NEUTRAL];
+            const col = new THREE.Color(hex);
+            return { hex: hex, r: col.r, g: col.g, b: col.b };
         }
 
         function createTexture(text, source, type) {
@@ -668,10 +676,8 @@
             animate();
         });
 
-        window.toggleLog = toggleLog;
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth/window.innerHeight;
-            camera.updateProjectionMatrix();
+            adjustCamera();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
     </script>
